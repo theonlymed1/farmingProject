@@ -3,6 +3,8 @@
 import express from 'express';
 import config from './config.js';
 import { gestionnaireErreurs, routeApiInconnue } from './lib/erreurs.js';
+import authRoutes from './modules/auth/routes.js';
+import { exigerConnexion, protegerPages } from './modules/auth/middleware.js';
 import santeRoutes from './modules/sante/routes.js';
 
 export function creerApp() {
@@ -12,15 +14,23 @@ export function creerApp() {
 
   // --- API ---------------------------------------------------------------
   const api = express.Router();
+
+  // Public routes (login page) — BEFORE the guard.
+  api.use('/auth', authRoutes);
+
+  // Everything below requires a logged-in session.
+  api.use(exigerConnexion);
   api.use('/sante', santeRoutes);
   // New modules are mounted here, one line each, as phases land:
-  // api.use('/auth', authRoutes);                     // phase 1
-  // api.use('/bandes', bandesRoutes);                 // phase 2
+  // api.use('/bandes', bandesRoutes);                  // phase 2
   // api.use('/bandes/:bandeId/charges', chargesRoutes) // phase 6 …
+
   api.use(routeApiInconnue);
   app.use('/api', api);
 
   // --- Frontend ------------------------------------------------------------
+  // Pages need a session (except the login page); CSS/JS files stay public.
+  app.use(protegerPages);
   // `extensions` lets /pages/bandes serve pages/bandes.html.
   app.use(express.static(config.publicDir, { extensions: ['html'] }));
 

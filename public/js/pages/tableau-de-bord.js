@@ -1,6 +1,6 @@
 // Dashboard. Phase 0: shows that the frontend reaches the API (or the mock).
 // Phase 3 replaces the health block with the Bande indicators.
-import { monterLayout, definirNomExploitation } from '../layout.js';
+import { monterLayout } from '../layout.js';
 import { api, mode } from '../api.js';
 import { formaterDateHeure } from '../format.js';
 import { afficherErreur, echapper } from '../ui.js';
@@ -11,7 +11,6 @@ const zone = document.getElementById('etat-serveur');
 
 try {
   const sante = await api.get('/sante');
-  definirNomExploitation(sante.nomExploitation);
   zone.innerHTML = `
     <dl class="liste-cles">
       <dt>Statut</dt><dd><span class="badge badge-ok">${echapper(sante.statut)}</span></dd>

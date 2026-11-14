@@ -21,6 +21,16 @@ Open <http://localhost:3000>. The dashboard should show **Statut : ok** and the 
 | `npm run dev` | Development: server restarts on every change in `server/` |
 | `npm start` | Runs once, like on the farmer's PC |
 | `npm run db:stop` | Stops a PostgreSQL left running (e.g. after closing the terminal) |
+| `npm run mot-de-passe` | Generates a new strong password for the account (maintenance only) |
+| `npm run mot-de-passe -- "MotDePasse!2026"` | Sets this password for the account |
+
+### Login
+
+On the first start the server creates the single account (`admin`) with a random strong
+password. It is printed in the console and saved in `.donnees/identifiants-initiaux.txt`
+(on the farmer's PC: `C:\ProgramData\PlateformeAvicole\`). Note it, then delete the file.
+The app has no "forgotten password" option on purpose; if the farmer loses it, you reset it
+on his PC with `npm run mot-de-passe`.
 
 Database files live in `.donnees/` (git-ignored). To start from an empty database:
 stop everything (`npm run db:stop`), delete `.donnees/`, run `npm run dev` again.

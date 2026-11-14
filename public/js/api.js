@@ -24,8 +24,20 @@ function lireMode() {
 
 export const mode = lireMode();
 
+export function allerALaConnexion() {
+  const retour = location.pathname + location.search;
+  location.replace(`/pages/connexion.html?retour=${encodeURIComponent(retour)}`);
+}
+
 async function requete(methode, chemin, corps) {
-  if (mode === 'mock') return repondreMock(methode, chemin, corps);
+  if (mode === 'mock') {
+    try {
+      return await repondreMock(methode, chemin, corps);
+    } catch (e) {
+      if (e.status === 401 && !chemin.startsWith('/auth/')) allerALaConnexion();
+      throw e;
+    }
+  }
 
   let reponse;
   try {
@@ -47,7 +59,9 @@ async function requete(methode, chemin, corps) {
 
   if (!reponse.ok) {
     const e = json?.erreur;
-    // Phase 1: a 401 will redirect to the login page here.
+    // Session expired (5 h idle) or logged out in another tab → back to the login page,
+    // then return here after logging in. /auth/* calls handle their own 401.
+    if (reponse.status === 401 && !chemin.startsWith('/auth/')) allerALaConnexion();
     throw new ErreurApi(reponse.status, e?.code ?? 'ERREUR', e?.message ?? 'Une erreur inattendue est survenue.', e?.details);
   }
   return json?.data ?? null;

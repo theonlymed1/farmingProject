@@ -40,6 +40,9 @@
 
 .badge-mode-mock { background: var(--ambre-600); color: var(--blanc); }
 
+.entete .bouton-entete-discret { background: transparent; color: var(--blanc); border-color: rgba(255, 255, 255, 0.6); }
+.entete .bouton-entete-discret:hover { background: rgba(255, 255, 255, 0.12); }
+
 /* --- Side menu ------------------------------------------------------------ */
 .menu {
   grid-area: menu;
@@ -65,6 +68,32 @@
 }
 .menu span { color: var(--gris-500); cursor: default; }
 .menu span small { font-size: 0.75rem; }
+.menu .menu-bas { margin-top: var(--e3); padding-top: var(--e3); border-top: 1px solid var(--couleur-bordure); }
+
+/* --- Login page (no menu) --------------------------------------------------- */
+.page-connexion {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--e4);
+  background: var(--vert-900);
+}
+.boite-connexion { width: 100%; max-width: 400px; }
+.boite-connexion .titre-appli { margin-bottom: var(--e1); }
+.boite-connexion .nom-exploitation { color: var(--couleur-texte-discret); margin-bottom: var(--e4); min-height: 1.5em; }
+.boite-connexion .bouton[type="submit"] { width: 100%; justify-content: center; margin-top: var(--e2); }
+
+/* --- Password field with show/hide toggle ----------------------------------- */
+.mot-de-passe-groupe { display: flex; gap: var(--e2); }
+.mot-de-passe-groupe input { flex: 1; min-width: 0; }
+.mot-de-passe-groupe .bouton { white-space: nowrap; }
+
+/* --- Password rules checklist ----------------------------------------------- */
+.regles { list-style: none; padding: 0; margin: 0 0 var(--e3); font-size: 0.9rem; }
+.regles li::before { content: "○ "; color: var(--gris-500); }
+.regles li.ok { color: var(--vert-700); }
+.regles li.ok::before { content: "✓ "; color: var(--vert-700); }
+.formulaire-etroit { max-width: 480px; }
 
 /* --- Content -------------------------------------------------------------- */
 .contenu { grid-area: contenu; padding: var(--e5); max-width: 1200px; }

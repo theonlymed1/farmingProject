@@ -69,3 +69,73 @@ Response 200:
 ```
 
 Historique: no.
+
+---
+
+## Phase 1 — Login
+
+One account, created automatically on first start (identifiant `admin`, generated password
+printed in the console and saved in `identifiants-initiaux.txt` in the data folder).
+The session is an `httpOnly` cookie `avicole_session`. It ends on logout or after
+**5 hours without activity**. Every route below `/api` except `/api/auth/*` requires it,
+and every page except `/pages/connexion.html` redirects to the login page without it.
+
+### GET /auth/etat
+
+Public. Tells the page whether someone is logged in.
+
+Response 200:
+
+```json
+{ "data": { "connecte": true, "identifiant": "admin", "nomExploitation": "Firme Sidi Aidi" } }
+```
+
+Historique: no.
+
+### POST /auth/connexion
+
+Public.
+
+Request body:
+
+```json
+{ "identifiant": "admin", "motDePasse": "…" }
+```
+
+Response 200 (+ `Set-Cookie: avicole_session=…`):
+
+```json
+{ "data": { "identifiant": "admin" } }
+```
+
+Errors: 400 `VALIDATION` (`identifiant`, `motDePasse` empty), 401 `IDENTIFIANTS_INVALIDES`.
+Historique: no.
+
+### POST /auth/deconnexion
+
+Public (works even if the session already expired). Response `204`, cookie cleared.
+Historique: no.
+
+### PUT /auth/mot-de-passe
+
+Logged in only.
+
+Request body:
+
+```json
+{ "actuel": "…", "nouveau": "…", "confirmation": "…" }
+```
+
+Strong password rules: at least 10 characters, one lowercase letter, one uppercase letter,
+one digit, one special character; different from the current one.
+
+Response 200:
+
+```json
+{ "data": { "message": "Mot de passe modifié." } }
+```
+
+Errors: 400 `VALIDATION` with `details` on `actuel` (wrong or empty), `nouveau` (too weak or
+same as current), `confirmation` (doesn't match). 401 `NON_AUTORISE`.
+Other open sessions are closed.
+Historique: yes — "Mot de passe modifié" (module `parametres`).

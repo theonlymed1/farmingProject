@@ -4,6 +4,7 @@ import config from './config.js';
 import { demarrerBase, arreterBase } from './db/postgres.js';
 import { appliquerMigrations } from './db/migrations.js';
 import { creerApp } from './app.js';
+import { assurerUtilisateurParDefaut, nettoyerSessions } from './modules/auth/service.js';
 
 let serveur = null;
 let arretEnCours = false;
@@ -21,6 +22,10 @@ async function main() {
   console.log(`Plateforme avicole v${config.version} — démarrage (${config.prod ? 'production' : 'développement'})`);
   await demarrerBase();
   await appliquerMigrations();
+  await assurerUtilisateurParDefaut();
+  await nettoyerSessions();
+  // Remove expired sessions every hour (unref: doesn't keep the process alive).
+  setInterval(() => nettoyerSessions().catch((e) => console.error('[auth]', e.message)), 60 * 60 * 1000).unref();
 
   const app = creerApp();
   serveur = app.listen(config.port, config.host, () => {

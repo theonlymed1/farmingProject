@@ -28,6 +28,14 @@ const config = {
   dossierDonnees,
   sauvegardesDir: path.join(dossierDonnees, 'sauvegardes'),
 
+  auth: {
+    // Username of the single account, created automatically on first start.
+    identifiantParDefaut: 'admin',
+    // The session ends after this much inactivity (or on "Se déconnecter").
+    inactiviteMs: 5 * 60 * 60 * 1000,
+    nomCookie: 'avicole_session',
+  },
+
   db: {
     dataDir: path.join(dossierDonnees, 'data'),
     // Non-standard port so we never collide with another PostgreSQL on the PC.

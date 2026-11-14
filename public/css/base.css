@@ -116,7 +116,8 @@ a { color: var(--couleur-principale); }
   border-color: var(--couleur-principale);
 }
 .champ .aide { font-size: 0.875rem; color: var(--couleur-texte-discret); }
-.champ .erreur-champ { font-size: 0.875rem; color: var(--rouge-600); }
+.champ .erreur-champ { font-size: 0.875rem; color: var(--rouge-600); margin: 0; }
+.champ input[aria-invalid="true"] { border-color: var(--rouge-600); }
 
 /* --- Tables --------------------------------------------------------------- */
 .tableau { width: 100%; border-collapse: collapse; background: var(--blanc); }
