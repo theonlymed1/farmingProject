@@ -4,6 +4,7 @@ import { journaliser } from '../../lib/historique.js';
 import { erreurs } from '../../lib/erreurs.js';
 import { entier } from '../../lib/validation.js';
 import { lireBandeClient } from '../bandes/service.js';
+import { exigerMotDePasse } from '../auth/service.js';
 import {
   construirePoints, libelleControle, formaterPoids,
 } from './calcul.js';
@@ -19,7 +20,7 @@ const MAX_GRAMMES = 99999.9;
 async function etat(client, bandeId) {
   const bande = await lireBandeClient(client, bandeId);
   const { rows: [config] } = await client.query(
-    'SELECT periode_jours, unite, modifie_le FROM croissance_config WHERE bande_id = $1', [bandeId],
+    'SELECT periode_jours, modifie_le FROM croissance_config WHERE bande_id = $1', [bandeId],
   );
   if (!config) return { bande, config: null, points: [] };
 
@@ -29,7 +30,7 @@ async function etat(client, bandeId) {
   const { rows: [{ aujourdhui }] } = await client.query('SELECT current_date AS aujourdhui');
   return {
     bande,
-    config: { periodeJours: config.periode_jours, unite: config.unite, modifieLe: config.modifie_le },
+    config: { periodeJours: config.periode_jours, modifieLe: config.modifie_le },
     points: construirePoints(bande, config.periode_jours, lignes, aujourdhui),
   };
 }
@@ -46,55 +47,67 @@ async function verrouiller(client, bandeId) {
 const libellePeriode = (p) => (p === 7 ? 'chaque semaine' : p === 1 ? 'chaque jour' : `tous les ${p} jours`);
 
 /**
- * Sets the check frequency and unit. Changing the frequency when values exist would shift every
- * value to another date, so it clears them — only if the request says confirmerEffacement: true.
+ * Sets the check frequency. Changing it when values exist would shift every value to another
+ * date, so it clears them — only if the request says confirmerEffacement: true.
  */
 export async function configurer(bandeId, corps) {
-  const champs = {};
   const [periode, ePeriode] = entier(corps?.periodeJours, { nom: 'La fréquence', min: 1, max: 60 });
-  if (ePeriode) champs.periodeJours = ePeriode;
-  const unite = corps?.unite;
-  if (unite !== 'g' && unite !== 'kg') champs.unite = 'Choisissez l’unité : grammes ou kilogrammes.';
-  if (Object.keys(champs).length) throw erreurs.validation('Vérifiez les champs indiqués.', champs);
+  if (ePeriode) throw erreurs.validation('Vérifiez les champs indiqués.', { periodeJours: ePeriode });
 
   return transaction(async (client) => {
     await verrouiller(client, bandeId);
     const { rows: [avant] } = await client.query(
-      'SELECT periode_jours, unite FROM croissance_config WHERE bande_id = $1', [bandeId],
+      'SELECT periode_jours FROM croissance_config WHERE bande_id = $1', [bandeId],
     );
+    if (avant && avant.periode_jours === periode) return etat(client, bandeId);
     const { rows: [{ n }] } = await client.query('SELECT count(*) AS n FROM croissance_point WHERE bande_id = $1', [bandeId]);
 
-    const periodeChange = avant && avant.periode_jours !== periode;
-    if (periodeChange && n > 0 && corps?.confirmerEffacement !== true) {
+    if (avant && n > 0 && corps?.confirmerEffacement !== true) {
       throw erreurs.conflit(
         `Changer la fréquence effacera ${n > 1 ? `les ${n} contrôles déjà saisis` : 'le contrôle déjà saisi'}. Confirmez pour continuer.`,
         { confirmationRequise: true, nombreControles: n },
       );
     }
-    if (avant && !periodeChange && avant.unite === unite) return etat(client, bandeId);
-
-    if (periodeChange && n > 0) await client.query('DELETE FROM croissance_point WHERE bande_id = $1', [bandeId]);
+    if (avant && n > 0) await client.query('DELETE FROM croissance_point WHERE bande_id = $1', [bandeId]);
     await client.query(
-      `INSERT INTO croissance_config (bande_id, periode_jours, unite) VALUES ($1, $2, $3)
-       ON CONFLICT (bande_id) DO UPDATE SET periode_jours = $2, unite = $3, modifie_le = now()`,
-      [bandeId, periode, unite],
+      `INSERT INTO croissance_config (bande_id, periode_jours) VALUES ($1, $2)
+       ON CONFLICT (bande_id) DO UPDATE SET periode_jours = $2, modifie_le = now()`,
+      [bandeId, periode],
     );
 
-    const unites = { g: 'grammes', kg: 'kilogrammes' };
-    let description = `Guide de croissance configuré : contrôle ${libellePeriode(periode)}, en ${unites[unite]}`;
-    if (avant) {
-      const parts = [];
-      if (periodeChange) parts.push(`fréquence ${libellePeriode(avant.periode_jours)} → ${libellePeriode(periode)}${n > 0 ? ` (${n} contrôle${n > 1 ? 's' : ''} effacé${n > 1 ? 's' : ''})` : ''}`);
-      if (avant.unite !== unite) parts.push(`unité ${unites[avant.unite]} → ${unites[unite]}`);
-      description = `Guide de croissance modifié : ${parts.join(' ; ')}`;
-    }
+    const efface = n > 0 ? ` (${n} contrôle${n > 1 ? 's' : ''} effacé${n > 1 ? 's' : ''})` : '';
     await journaliser(client, {
       bandeId,
       module: 'croissance',
       action: avant ? 'modification' : 'creation',
-      description,
-      avant: avant ? { periodeJours: avant.periode_jours, unite: avant.unite } : null,
-      apres: { periodeJours: periode, unite },
+      description: avant
+        ? `Guide de croissance modifié : fréquence ${libellePeriode(avant.periode_jours)} → ${libellePeriode(periode)}${efface}`
+        : `Guide de croissance créé : contrôle ${libellePeriode(periode)}`,
+      avant: avant ? { periodeJours: avant.periode_jours } : null,
+      apres: { periodeJours: periode },
+    });
+    return etat(client, bandeId);
+  });
+}
+
+/** Deletes the Bande's guide and every value in it, after checking the password again. */
+export async function supprimerGuide(bandeId, motDePasse, utilisateurId) {
+  return transaction(async (client) => {
+    await exigerMotDePasse(client, utilisateurId, motDePasse);
+    await verrouiller(client, bandeId);
+    const { rows: [config] } = await client.query(
+      'DELETE FROM croissance_config WHERE bande_id = $1 RETURNING periode_jours', [bandeId],
+    );
+    if (!config) throw erreurs.introuvable('Cette bande n’a pas de guide de croissance.');
+    const { rows: effaces } = await client.query('DELETE FROM croissance_point WHERE bande_id = $1 RETURNING rang', [bandeId]);
+    const n = effaces.length;
+    await journaliser(client, {
+      bandeId,
+      module: 'croissance',
+      action: 'suppression',
+      description: `Guide de croissance supprimé (contrôle ${libellePeriode(config.periode_jours)}, `
+        + `${n} contrôle${n > 1 ? 's' : ''} avec des valeurs)`,
+      avant: { periodeJours: config.periode_jours },
     });
     return etat(client, bandeId);
   });
@@ -120,7 +133,7 @@ export async function enregistrerValeurs(bandeId, corps) {
   return transaction(async (client) => {
     await verrouiller(client, bandeId);
     const { rows: [config] } = await client.query(
-      'SELECT periode_jours, unite FROM croissance_config WHERE bande_id = $1', [bandeId],
+      'SELECT periode_jours FROM croissance_config WHERE bande_id = $1', [bandeId],
     );
     if (!config) throw erreurs.conflit('Configurez d’abord la fréquence des contrôles.');
 
@@ -152,7 +165,7 @@ export async function enregistrerValeurs(bandeId, corps) {
       for (const [colonne, libelle] of Object.values(COLONNES)) {
         const ancien = existante?.[colonne] == null ? null : Number(existante[colonne]);
         if (ancien !== fusion[colonne]) {
-          changements.push(`${nom} ${libelle} ${formaterPoids(ancien, config.unite)} → ${formaterPoids(fusion[colonne], config.unite)}`);
+          changements.push(`${nom} ${libelle} ${formaterPoids(ancien)} → ${formaterPoids(fusion[colonne])}`);
         }
       }
 

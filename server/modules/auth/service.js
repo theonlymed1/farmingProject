@@ -145,6 +145,20 @@ export async function changerMotDePasse({ utilisateurId, sessionId }, { actuel, 
   });
 }
 
+/**
+ * For sensitive actions (deleting a Bande, a guide…): checks the user's password again,
+ * inside the caller's transaction. Throws a field error on `motDePasse`.
+ */
+export async function exigerMotDePasse(client, utilisateurId, motDePasse) {
+  if (typeof motDePasse !== 'string' || !motDePasse) {
+    throw erreurs.validation('Vérifiez les champs indiqués.', { motDePasse: 'Saisissez votre mot de passe pour confirmer.' });
+  }
+  const { rows: [u] } = await client.query('SELECT mot_de_passe_hash FROM utilisateur WHERE id = $1', [utilisateurId]);
+  if (!u || !(await verifierMotDePasse(motDePasse, u.mot_de_passe_hash))) {
+    throw erreurs.validation('Vérifiez les champs indiqués.', { motDePasse: 'Mot de passe incorrect.' });
+  }
+}
+
 /** Used by scripts/mot-de-passe.js: sets a password without knowing the old one. */
 export async function definirMotDePasse(nouveau) {
   const manquantes = reglesNonRespectees(nouveau);

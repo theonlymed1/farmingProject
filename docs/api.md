@@ -265,8 +265,10 @@ Historique: yes — "Déclaration de morts annulée : …".
 
 ## Phase 4 — Croissance et pesées
 
-Each Bande has its own guide: a check frequency (`periodeJours`, 1–60, 7 = weekly) and a unit
-(`g` or `kg`, display only). **All weights in the API are in grams** (0.1 – 99 999.9, one decimal).
+Each Bande has its own guide: a check frequency (`periodeJours`, 1–60, 7 = weekly).
+**All weights in the API are in grams** (0.1 – 99 999.9, one decimal). There is no unit setting
+(removed by migration 006): the farmer types `900g`, `1,25 kg` or a plain number (below 20 = kg,
+otherwise g) and the screen shows each weight in g below 1 kg, in kg from 1 kg.
 Check number `rang` falls `rang × periodeJours` days after the start date. The table covers the
 Bande's whole duration (4 months weekly = 17 checks), plus any later check that already has values.
 
@@ -287,17 +289,24 @@ A point:
 
 ### GET /bandes/:bandeId/croissance
 
-Response 200: `{ "data": { "bande": Bande, "config": { "periodeJours": 7, "unite": "kg" } | null, "points": [ … ] } }`.
+Response 200: `{ "data": { "bande": Bande, "config": { "periodeJours": 7 } | null, "points": [ … ] } }`.
 `config` is null (and `points` empty) until the guide is configured. Historique: no.
 
 ### PUT /bandes/:bandeId/croissance/config
 
-Body: `{ "periodeJours": 7, "unite": "kg" }`. Response 200: same as GET.
-Changing the unit keeps every value (they are in grams). Changing the frequency when values exist
+Body: `{ "periodeJours": 7 }`. Response 200: same as GET.
+Changing the frequency when values exist
 returns 409 `CONFLIT` with `details.confirmationRequise: true`; resend with
 `"confirmerEffacement": true` to clear them.
-Historique: yes — "Guide de croissance configuré : contrôle chaque semaine, en kilogrammes" /
-"Guide de croissance modifié : unité kilogrammes → grammes".
+Historique: yes — "Guide de croissance créé : contrôle chaque semaine" /
+"Guide de croissance modifié : fréquence chaque semaine → tous les 3 jours (2 contrôles effacés)".
+
+### DELETE /bandes/:bandeId/croissance
+
+Deletes the guide and all its values. Body: `{ "motDePasse": "…" }` (required).
+Response 200: same as GET (`config: null`). Errors: 400 `VALIDATION` on `motDePasse`,
+404 `INTROUVABLE` if the Bande has no guide.
+Historique: yes — "Guide de croissance supprimé (contrôle chaque semaine, 3 contrôles avec des valeurs)".
 
 ### PUT /bandes/:bandeId/croissance/valeurs
 
@@ -305,4 +314,4 @@ Body: `{ "points": [ { "rang": 1, "guideMales": 180, "observeMales": 195.5 }, { 
 Only the keys sent are changed; `null` empties a cell. Response 200: same as GET.
 Errors: 409 `CONFLIT` if not configured; 400 `VALIDATION` with `details` keyed `"<rang>-<colonne>"`.
 Historique: yes, one line per save listing the changes —
-"Croissance : Semaine 1 observé mâles vide → 0,196 kg ; …" (first 12, then "et N autres modifications").
+"Croissance : Semaine 1 observé mâles vide → 1,25 kg ; …" (first 12, then "et N autres modifications").

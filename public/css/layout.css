@@ -223,9 +223,9 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .grille-croissance tbody tr:hover td.cellule-saisie, .grille-croissance tbody tr:hover th { background: var(--gris-100); }
 .grille-croissance .ligne-actuelle th, .grille-croissance .ligne-actuelle td.cellule-saisie { background: var(--ambre-100); }
 .cellule-saisie input {
-  width: 76px;
+  width: 88px;
   font: inherit;
-  text-align: right;
+  text-align: center;
   font-variant-numeric: tabular-nums;
   padding: var(--e1) var(--e2);
   border: 1px solid var(--couleur-bordure);
@@ -236,6 +236,8 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .cellule-saisie input.saisie-modifiee { border-color: var(--ambre-600); background: var(--ambre-100); }
 .cellule-saisie input.saisie-invalide { border-color: var(--rouge-600); background: var(--rouge-100); }
 .cellule-ecart { font-weight: 600; font-size: 0.85rem; }
+/* Header, input and gap of a weight column share the same centre line. */
+.grille-croissance th.col-poids, .grille-croissance td.cellule-saisie, .grille-croissance td.cellule-ecart { text-align: center; }
 
 .barre-enregistrer {
   position: sticky;

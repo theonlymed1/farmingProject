@@ -1,14 +1,16 @@
 // Croissance et pesées (?bande=…).
-//  1. First visit: choose the check frequency and the unit (once per Bande).
+//  1. First visit: choose the check frequency (once per Bande).
 //  2. Then: one table row per check — guide and observed weights for males and females,
-//     typed directly in the table, saved with one button. Gaps update live:
+//     typed with or without a unit (900g, 1,25 kg, 1250), saved with one button. Gaps update live:
 //     light green = at or above the guide, light red = below.
 import { monterLayout } from '../layout.js';
 import { api } from '../api.js';
 import { formaterDate } from '../format.js';
-import { echapper, afficherErreur, afficherSucces, confirmer } from '../ui.js';
 import {
-  lirePoids, ecrirePoids, calculerEcart, texteEcart, classeEcart, libellePeriode, resumeDernierControle,
+  echapper, afficherErreur, afficherSucces, confirmer, confirmerAvecMotDePasse,
+} from '../ui.js';
+import {
+  lirePoids, ecrirePoids, calculerEcart, texteEcart, classeEcart, libellePeriode, resumeDernierControle, SEUIL_KG_SANS_UNITE,
 } from '../croissance-commun.js';
 
 const bandeId = Number(new URLSearchParams(location.search).get('bande'));
@@ -17,14 +19,13 @@ const message = document.getElementById('message');
 const COLONNES = ['guideMales', 'observeMales', 'guideFemelles', 'observeFemelles'];
 let etat = null; // { bande, config, points }
 
-// --- Settings (frequency + unit) -----------------------------------------------------
+// --- Settings (check frequency) -----------------------------------------------------
 
 const FREQUENCES = [[7, 'Chaque semaine (7 jours)'], [3, 'Tous les 3 jours'], [1, 'Chaque jour']];
 
 function htmlReglages(config) {
   const periode = config?.periodeJours ?? 7;
   const autre = !FREQUENCES.some(([v]) => v === periode);
-  const unite = config?.unite ?? 'kg';
   return `
     <div class="champ">
       <label for="frequence">Fréquence des contrôles (comme dans le guide du fournisseur)</label>
@@ -36,19 +37,13 @@ function htmlReglages(config) {
     <div class="champ" id="champ-jours"${autre ? '' : ' hidden'}>
       <label for="periodeJours">Nombre de jours entre deux contrôles</label>
       <input id="periodeJours" type="number" min="1" max="60" step="1" value="${periode}">
-    </div>
-    <fieldset class="champ choix" id="unite">
-      <legend>Unité des poids</legend>
-      <label><input type="radio" name="unite" value="kg"${unite === 'kg' ? ' checked' : ''}> Kilogrammes (kg)</label>
-      <label><input type="radio" name="unite" value="g"${unite === 'g' ? ' checked' : ''}> Grammes (g)</label>
-    </fieldset>`;
+    </div>`;
 }
 
 function lireReglages(racine) {
   const choix = racine.querySelector('#frequence').value;
   return {
     periodeJours: choix === 'autre' ? Number(racine.querySelector('#periodeJours').value) : Number(choix),
-    unite: racine.querySelector('[name="unite"]:checked').value,
   };
 }
 
@@ -79,7 +74,7 @@ function afficherConfiguration() {
   zone.innerHTML = `
     <section class="carte formulaire-etroit no-print">
       <h2>Configurer le guide de cette bande</h2>
-      <p>Choisissez la fréquence des contrôles indiquée dans le guide du fournisseur et l’unité de poids.
+      <p>Choisissez la fréquence des contrôles indiquée dans le guide du fournisseur.
         Un tableau sera créé pour toute la durée de la bande.</p>
       <div class="message"></div>
       <form id="form-config" novalidate>
@@ -114,7 +109,7 @@ async function ouvrirReglages() {
       <h2>Réglages du guide</h2>
       <div class="message"></div>
       ${htmlReglages(etat.config)}
-      <p class="aide">Changer l’unité convertit les valeurs. Changer la fréquence efface les valeurs saisies.</p>
+      <p class="aide">Changer la fréquence efface les valeurs déjà saisies.</p>
       <div class="actions-dialogue">
         <button type="button" class="bouton bouton-secondaire" data-fermer>Annuler</button>
         <button type="submit" class="bouton">Enregistrer</button>
@@ -148,13 +143,12 @@ async function ouvrirReglages() {
 const modifications = new Map();
 
 function celluleEcart(e) {
-  return `<td class="nombre cellule-ecart ${classeEcart(e)}">${e ? echapper(texteEcart(e, etat.config.unite)) : ''}</td>`;
+  return `<td class="cellule-ecart ${classeEcart(e)}">${e ? echapper(texteEcart(e)) : ''}</td>`;
 }
 
 function htmlLigne(p) {
-  const u = etat.config.unite;
   const input = (col) => `<td class="cellule-saisie"><input type="text" inputmode="decimal" autocomplete="off"
-      data-rang="${p.rang}" data-col="${col}" value="${ecrirePoids(p[col], u)}"
+      data-rang="${p.rang}" data-col="${col}" value="${ecrirePoids(p[col])}"
       aria-label="${echapper(p.libelle)} — ${{ guideMales: 'guide mâles', observeMales: 'observé mâles', guideFemelles: 'guide femelles', observeFemelles: 'observé femelles' }[col]}"></td>`;
   return `
     <tr data-rang="${p.rang}" class="${p.actuel ? 'ligne-actuelle' : ''}">
@@ -179,9 +173,10 @@ function afficherTableau() {
     <section class="carte">
       <div class="titre-section">
         <h2>Guide et poids observés</h2>
-        <span class="texte-discret">Contrôle ${libellePeriode(config.periodeJours)} · poids en ${config.unite === 'kg' ? 'kilogrammes (kg)' : 'grammes (g)'}</span>
+        <span class="texte-discret">Contrôle ${libellePeriode(config.periodeJours)}</span>
       </div>
-      <p class="aide no-print">Tapez les poids directement dans le tableau (ex. ${config.unite === 'kg' ? '1,25' : '1250'}), puis cliquez sur « Enregistrer ».
+      <p class="aide no-print">Tapez les poids directement dans le tableau, avec ou sans unité : <strong>900g</strong>, <strong>1,25 kg</strong>, <strong>1250</strong>…
+        Sans unité, un nombre inférieur à ${SEUIL_KG_SANS_UNITE} est lu en kilogrammes (2,5 = 2,5 kg), sinon en grammes. Puis cliquez sur « Enregistrer ».
         Écart en <span class="ecart-positif pastille">vert</span> : au-dessus du guide ou égal ;
         en <span class="ecart-negatif pastille">rouge</span> : en dessous.</p>
       <div class="defilement-tableau">
@@ -190,12 +185,12 @@ function afficherTableau() {
             <tr>
               <th scope="col" rowspan="2">Contrôle</th>
               <th scope="col" rowspan="2">Date</th>
-              <th scope="colgroup" colspan="3" class="groupe">Mâles (${config.unite})</th>
-              <th scope="colgroup" colspan="3" class="groupe">Femelles (${config.unite})</th>
+              <th scope="colgroup" colspan="3" class="groupe">Mâles</th>
+              <th scope="colgroup" colspan="3" class="groupe">Femelles</th>
             </tr>
             <tr>
-              <th scope="col" class="nombre">Guide</th><th scope="col" class="nombre">Observé</th><th scope="col" class="nombre">Écart</th>
-              <th scope="col" class="nombre">Guide</th><th scope="col" class="nombre">Observé</th><th scope="col" class="nombre">Écart</th>
+              <th scope="col" class="col-poids">Guide</th><th scope="col" class="col-poids">Observé</th><th scope="col" class="col-poids">Écart</th>
+              <th scope="col" class="col-poids">Guide</th><th scope="col" class="col-poids">Observé</th><th scope="col" class="col-poids">Écart</th>
             </tr>
           </thead>
           <tbody>${etat.points.map(htmlLigne).join('')}</tbody>
@@ -211,6 +206,12 @@ function afficherTableau() {
 
   const tbody = zone.querySelector('.grille-croissance tbody');
   tbody.addEventListener('input', (e) => surSaisie(e.target));
+  // Leaving a cell rewrites a valid weight the standard way: "1kg" → "1 kg", "1250" → "1,25 kg".
+  tbody.addEventListener('change', (e) => {
+    if (!e.target.matches('input[data-col]')) return;
+    const g = lirePoids(e.target.value);
+    if (g !== null && !Number.isNaN(g)) e.target.value = ecrirePoids(g);
+  });
   tbody.addEventListener('keydown', surClavier);
   tbody.addEventListener('focusin', (e) => { if (e.target.matches('input')) e.target.select(); });
   document.getElementById('bouton-enregistrer').addEventListener('click', enregistrer);
@@ -228,11 +229,11 @@ function surSaisie(input) {
   if (!input.matches('input[data-col]')) return;
   const rang = Number(input.dataset.rang);
   const { col } = input.dataset;
-  const g = lirePoids(input.value, etat.config.unite);
+  const g = lirePoids(input.value);
   const origine = etat.points.find((p) => p.rang === rang)?.[col] ?? null;
 
   input.classList.toggle('saisie-invalide', Number.isNaN(g));
-  input.title = Number.isNaN(g) ? 'Poids invalide : un nombre positif, ex. 1,25' : '';
+  input.title = Number.isNaN(g) ? 'Poids invalide. Exemples : 900g, 1,25 kg, 1250' : '';
   const cle = `${rang}:${col}`;
   if (g === origine) modifications.delete(cle);
   else modifications.set(cle, g);
@@ -242,8 +243,8 @@ function surSaisie(input) {
   const sexe = col.endsWith('Males') ? 'Males' : 'Femelles';
   const e = calculerEcart(valeurCellule(rang, `guide${sexe}`), valeurCellule(rang, `observe${sexe}`));
   const cellule = input.closest('td').parentElement.querySelectorAll('.cellule-ecart')[sexe === 'Males' ? 0 : 1];
-  cellule.className = `nombre cellule-ecart ${classeEcart(e)}`;
-  cellule.textContent = e ? texteEcart(e, etat.config.unite) : '';
+  cellule.className = `cellule-ecart ${classeEcart(e)}`;
+  cellule.textContent = e ? texteEcart(e) : '';
   majBarre();
 }
 
@@ -300,6 +301,23 @@ window.addEventListener('beforeunload', (e) => {
 
 document.getElementById('bouton-imprimer-page').addEventListener('click', () => window.print());
 document.getElementById('bouton-reglages').addEventListener('click', ouvrirReglages);
+
+document.getElementById('bouton-supprimer-guide').addEventListener('click', async () => {
+  const remplis = etat.points.filter((p) => COLONNES.some((c) => p[c] != null)).length;
+  const nouvel = await confirmerAvecMotDePasse({
+    titre: 'Supprimer le guide de croissance ?',
+    avertissement: `Le guide de « ${etat.bande.nom} » et toutes ses valeurs seront supprimés `
+      + `(${remplis} contrôle${remplis > 1 ? 's' : ''} rempli${remplis > 1 ? 's' : ''}). Cette action est irréversible.`,
+    bouton: 'Supprimer le guide',
+    action: (motDePasse) => api.supprimer(`/bandes/${bandeId}/croissance`, { motDePasse }),
+  });
+  if (!nouvel) return;
+  etat = nouvel;
+  modifications.clear();
+  document.getElementById('actions').hidden = true;
+  afficherConfiguration();
+  afficherSucces(message, 'Guide supprimé.');
+});
 
 try {
   if (!Number.isInteger(bandeId) || bandeId <= 0) throw new Error('Bande introuvable. Revenez à la liste des bandes.');

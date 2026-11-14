@@ -2,11 +2,11 @@
 import { query, transaction } from '../../db/postgres.js';
 import { journaliser } from '../../lib/historique.js';
 import { erreurs } from '../../lib/erreurs.js';
-import { verifierMotDePasse } from '../../lib/motDePasse.js';
 import {
   texte, entier, date, dateFr, nombreFr,
 } from '../../lib/validation.js';
 import { SQL_EFFET, verifierCoherence } from '../volaille/coherence.js';
+import { exigerMotDePasse } from '../auth/service.js';
 
 // Computed in SQL so every screen agrees:
 //  date_fin  = start + duration
@@ -194,14 +194,8 @@ export async function modifierBande(id, corps) {
 
 /** Deletes a Bande and everything in it, after checking the user's password again. */
 export async function supprimerBande(id, motDePasse, utilisateurId) {
-  if (typeof motDePasse !== 'string' || !motDePasse) {
-    throw erreurs.validation('Vérifiez les champs indiqués.', { motDePasse: 'Saisissez votre mot de passe pour confirmer.' });
-  }
   await transaction(async (client) => {
-    const { rows: [u] } = await client.query('SELECT mot_de_passe_hash FROM utilisateur WHERE id = $1', [utilisateurId]);
-    if (!u || !(await verifierMotDePasse(motDePasse, u.mot_de_passe_hash))) {
-      throw erreurs.validation('Vérifiez les champs indiqués.', { motDePasse: 'Mot de passe incorrect.' });
-    }
+    await exigerMotDePasse(client, utilisateurId, motDePasse);
     await client.query('SELECT id FROM bande WHERE id = $1 FOR UPDATE', [id]);
     const avant = await lire(client, id);
     await client.query('DELETE FROM bande WHERE id = $1', [id]);

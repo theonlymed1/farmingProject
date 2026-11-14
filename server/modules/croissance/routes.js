@@ -2,7 +2,9 @@
 import { Router } from 'express';
 import { erreurs } from '../../lib/erreurs.js';
 import { idParam } from '../../lib/validation.js';
-import { lireCroissance, configurer, enregistrerValeurs } from './service.js';
+import {
+  lireCroissance, configurer, enregistrerValeurs, supprimerGuide,
+} from './service.js';
 
 const router = Router({ mergeParams: true });
 
@@ -22,6 +24,11 @@ router.put('/config', async (req, res) => {
 
 router.put('/valeurs', async (req, res) => {
   res.json({ data: await enregistrerValeurs(bandeId(req), req.body) });
+});
+
+// The password travels in the body: { "motDePasse": "…" }
+router.delete('/', async (req, res) => {
+  res.json({ data: await supprimerGuide(bandeId(req), req.body?.motDePasse, req.auth.utilisateurId) });
 });
 
 export default router;

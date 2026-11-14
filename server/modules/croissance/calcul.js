@@ -69,10 +69,10 @@ export function dernierControleObserve(points) {
   return points.filter((p) => p.observeMales != null || p.observeFemelles != null).at(-1) ?? null;
 }
 
-/** '1 250 g' or '1,25 kg' — for French history sentences. */
-export function formaterPoids(grammes, unite) {
+/** '900 g' below 1 kg, '1,25 kg' from 1 kg — for French history sentences (same as the screen). */
+export function formaterPoids(grammes) {
   if (grammes == null) return 'vide';
-  return unite === 'kg'
-    ? `${(grammes / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 3 })} kg`
-    : `${grammes.toLocaleString('fr-FR', { maximumFractionDigits: 1 }).replace(/ /g, ' ')} g`;
+  return Math.abs(grammes) >= 1000
+    ? `${(grammes / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 4 })} kg`
+    : `${grammes.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g`;
 }

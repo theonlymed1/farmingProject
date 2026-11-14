@@ -113,7 +113,7 @@ function etatCroissance(id) {
   });
   const actuel = points.filter((x) => x.passe).at(-1);
   if (actuel) actuel.actuel = true;
-  return { bande, config: { periodeJours: p, unite: c.unite }, points };
+  return { bande, config: { periodeJours: p }, points };
 }
 
 const routes = [
@@ -134,7 +134,21 @@ const routes = [
         throw new ErreurApi(409, 'CONFLIT', `Changer la fréquence effacera ${n > 1 ? `les ${n} contrôles déjà saisis` : 'le contrôle déjà saisi'}. Confirmez pour continuer.`, { confirmationRequise: true, nombreControles: n });
       }
       const garder = avant && avant.periodeJours === corps.periodeJours;
-      tout[id] = { periodeJours: corps.periodeJours, unite: corps.unite, valeurs: garder ? avant.valeurs : {} };
+      tout[id] = { periodeJours: corps.periodeJours, valeurs: garder ? avant.valeurs : {} };
+      ecrireCroissance(tout);
+      return etatCroissance(id);
+    },
+  },
+  {
+    methode: 'DELETE',
+    motif: /^\/bandes\/(\d+)\/croissance$/,
+    reponse: ({ params: [id], corps }) => {
+      exigerConnexion();
+      if (corps.motDePasse !== MOCK_MOT_DE_PASSE) {
+        throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', { motDePasse: 'Mot de passe incorrect.' });
+      }
+      const tout = lireCroissance();
+      delete tout[id];
       ecrireCroissance(tout);
       return etatCroissance(id);
     },
