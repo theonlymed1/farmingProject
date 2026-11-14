@@ -362,3 +362,23 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .plus { text-align: center; margin-top: var(--e3); }
 .tableau-details th[scope="row"] { font-weight: 600; white-space: nowrap; }
 .tableau-details .ligne-changee td, .tableau-details .ligne-changee th { background: var(--ambre-100); }
+
+/* --- Ventes ---------------------------------------------------------------------------- */
+.indicateur-benefice { background: var(--vert-clair); border-color: var(--vert-700); border-width: 2px; }
+.indicateur-perte { background: var(--rouge-clair); border-color: var(--rouge-600); border-width: 2px; }
+.indicateur-perte .indicateur-valeur { color: var(--rouge-600); }
+.badge-client { background: var(--gris-100); color: var(--gris-700); font-weight: 500; }
+.cellule-numero { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
+.tableau-ventes td { vertical-align: top; }
+.tableau-ventes .detail-cellule { font-size: 0.85rem; color: var(--couleur-texte-discret); white-space: nowrap; }
+.tableau-ventes td.nombre { white-space: nowrap; }
+.indicateurs-six { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) { .indicateurs-six { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.options-ligne { display: flex; flex-wrap: wrap; gap: var(--e2) var(--e5); }
+.dialogue [data-total-oiseaux] { margin-top: 0; }
+.facture-exploitation { font-size: 1.2rem; }
+.facture-numero { text-align: right; }
+.tableau-facture { margin: var(--e3) 0; }
+.facture-total { font-size: 1.2rem; margin-top: var(--e3); padding: var(--e2) var(--e3); background: var(--gris-100); border-radius: var(--rayon); }
+.facture-note { font-size: 0.85rem; }
+.tableau-ventes .actions-ligne button { display: block; margin: 0 0 var(--e1); }

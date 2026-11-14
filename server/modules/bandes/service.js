@@ -12,7 +12,7 @@ import { exigerMotDePasse } from '../auth/service.js';
 //  date_fin  = start + duration
 //  statut    = 'a_venir' (not started) | 'en_cours' (green) | 'terminee' (red, duration passed)
 //  age_jours = day 1 is the arrival day
-//  s.*       = health totals per sex from the declarations (phase 3)
+//  s.*       = flock totals per sex from the declarations and the sales (view mouvement_troupeau)
 const SELECT_BANDE = `
   SELECT b.id, b.nom, b.date_debut, b.duree_mois, b.nombre_poussins, b.prix_poussins,
          b.cree_le, b.modifie_le, fin.date_fin, s.*,
@@ -26,19 +26,22 @@ const SELECT_BANDE = `
      SELECT COALESCE(SUM(males)     FILTER (WHERE type = 'mort'), 0) AS morts_m,
             COALESCE(SUM(femelles)  FILTER (WHERE type = 'mort'), 0) AS morts_f,
             COALESCE(SUM(non_sexes) FILTER (WHERE type = 'mort'), 0) AS morts_n,
+            COALESCE(SUM(males)     FILTER (WHERE type = 'vente'), 0) AS vendus_m,
+            COALESCE(SUM(femelles)  FILTER (WHERE type = 'vente'), 0) AS vendus_f,
+            COALESCE(SUM(non_sexes) FILTER (WHERE type = 'vente'), 0) AS vendus_n,
             COALESCE(SUM(${SQL_EFFET.sainsMales}), 0)      AS sains_m,
             COALESCE(SUM(${SQL_EFFET.maladesMales}), 0)    AS malades_m,
             COALESCE(SUM(${SQL_EFFET.sainsFemelles}), 0)   AS sains_f,
             COALESCE(SUM(${SQL_EFFET.maladesFemelles}), 0) AS malades_f,
             COALESCE(SUM(${SQL_EFFET.sainsNonSexes}), 0)   AS delta_sains_n,
             COALESCE(SUM(${SQL_EFFET.maladesNonSexes}), 0) AS malades_n
-       FROM mouvement_sante m WHERE m.bande_id = b.id) s`;
+       FROM mouvement_troupeau m WHERE m.bande_id = b.id) s`;
 
 const pourcent = (n, total) => (total > 0 ? Math.round((n / total) * 10000) / 100 : 0);
 
-/** One sex group of the flock: healthy, sick, dead, alive. */
-const groupe = (sains, malades, morts) => ({
-  sains, malades, morts, vivants: sains + malades,
+/** One sex group of the flock: healthy, sick, dead, sold, alive (still on the farm). */
+const groupe = (sains, malades, morts, vendus) => ({
+  sains, malades, morts, vendus, vivants: sains + malades,
 });
 
 function versJson(r) {
@@ -52,20 +55,21 @@ function versJson(r) {
     // Total paid for the chicks (DH); null for Bandes created before it was asked.
     prixPoussins: r.prix_poussins,
     prixParPoussin: r.prix_poussins == null ? null : Math.round((r.prix_poussins / r.nombre_poussins) * 100) / 100,
-    effectifActuel: r.nombre_poussins - r.morts_m - r.morts_f - r.morts_n,
+    effectifActuel: r.nombre_poussins - r.morts_m - r.morts_f - r.morts_n - r.vendus_m - r.vendus_f - r.vendus_n,
     // Every chick starts non-sexed; "Déclarer le sexe" moves healthy non-sexed birds to males / females.
     sante: (() => {
-      const males = groupe(r.sains_m, r.malades_m, r.morts_m);
-      const femelles = groupe(r.sains_f, r.malades_f, r.morts_f);
-      const nonSexes = groupe(r.nombre_poussins + r.delta_sains_n, r.malades_n, r.morts_n);
+      const males = groupe(r.sains_m, r.malades_m, r.morts_m, r.vendus_m);
+      const femelles = groupe(r.sains_f, r.malades_f, r.morts_f, r.vendus_f);
+      const nonSexes = groupe(r.nombre_poussins + r.delta_sains_n, r.malades_n, r.morts_n, r.vendus_n);
       const morts = r.morts_m + r.morts_f + r.morts_n;
+      const vendus = r.vendus_m + r.vendus_f + r.vendus_n;
       return {
         males,
         femelles,
         nonSexes,
         total: {
           recus: r.nombre_poussins,
-          ...groupe(males.sains + femelles.sains + nonSexes.sains, males.malades + femelles.malades + nonSexes.malades, morts),
+          ...groupe(males.sains + femelles.sains + nonSexes.sains, males.malades + femelles.malades + nonSexes.malades, morts, vendus),
           tauxMortalite: pourcent(morts, r.nombre_poussins),
         },
       };

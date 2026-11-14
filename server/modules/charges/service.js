@@ -63,6 +63,11 @@ async function etat(client, bandeId) {
   return { bande, charges, resume: resume(charges, bande, await coutEmployes(client, bandeId)) };
 }
 
+/** Total cost of a Bande (chicks + charges + workers), for the sales result. */
+export async function resumeCouts(client, bandeId) {
+  return (await etat(client, bandeId)).resume;
+}
+
 export async function lireCharges(bandeId) {
   return etat({ query }, bandeId);
 }

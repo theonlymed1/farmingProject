@@ -10,6 +10,7 @@ import { echapper, afficherErreur, afficherSucces } from '../ui.js';
 import { tableauSante } from '../volaille-commun.js';
 import { resumeDernierControle } from '../croissance-commun.js';
 import { tuilesCharges, tableauParType } from '../charges-commun.js';
+import { tuilesVentes } from '../ventes-commun.js';
 import {
   STATUTS, badgeStatut, ouvrirFormulaireBande, confirmerSuppressionBande,
 } from '../bandes-commun.js';
@@ -23,6 +24,7 @@ const FONCTIONNALITES = [
   ['Mortalité et malades', 'Déclarer des malades, des guérisons et des morts', 'volaille'],
   ['Croissance et pesées', 'Guide du fournisseur et poids observés', 'croissance'],
   ['Charges', 'Achats et services : aliment, gaz, vaccins…', 'charges'],
+  ['Ventes', 'Oiseaux vendus aux clients, factures', 'ventes'],
   ['Employés', 'Avances, jours de repos, départ et reçu', 'employes'],
   ['Historique', 'Toutes les opérations de la bande', 'historique'],
 ];
@@ -49,7 +51,8 @@ function afficher(b) {
       <div class="indicateur ${s.classe}">
         <span class="indicateur-libelle">Effectif actuel</span>
         <span class="indicateur-valeur">${formaterNombre(b.effectifActuel)}</span>
-        <span class="indicateur-detail">sur ${formaterNombre(b.nombrePoussins)} poussins reçus</span>
+        <span class="indicateur-detail">sur ${formaterNombre(b.nombrePoussins)} poussins reçus${b.sante.total.vendus
+    ? ` · ${formaterNombre(b.sante.total.vendus)} vendus` : ''}</span>
       </div>
       <div class="indicateur">
         <span class="indicateur-libelle">Malades / morts</span>
@@ -111,6 +114,14 @@ function afficher(b) {
       <div id="resume-charges">Chargement…</div>
     </section>
 
+    <section class="carte" aria-labelledby="titre-ventes">
+      <div class="titre-section">
+        <h2 id="titre-ventes">Ventes et résultat</h2>
+        <a class="no-print" href="/pages/ventes.html?bande=${b.id}">Ventes →</a>
+      </div>
+      <div id="resume-ventes">Chargement…</div>
+    </section>
+
     <section class="carte" aria-labelledby="titre-employes">
       <div class="titre-section">
         <h2 id="titre-employes">Employés</h2>
@@ -155,6 +166,13 @@ function afficher(b) {
         ? tableauParType(etat.resume) : '<p class="texte-discret">Aucune charge déclarée pour cette bande.</p>'}`;
     })
     .catch((e) => afficherErreur(document.getElementById('resume-charges'), e));
+
+  api.get(`/bandes/${b.id}/ventes`)
+    .then(({ resume }) => {
+      document.getElementById('resume-ventes').innerHTML = `${tuilesVentes(resume)}${resume.nombre
+        ? '' : '<p class="texte-discret">Aucune vente déclarée pour cette bande.</p>'}`;
+    })
+    .catch((e) => afficherErreur(document.getElementById('resume-ventes'), e));
 
   api.get(`/bandes/${b.id}/croissance`)
     .then((etat) => { document.getElementById('resume-croissance').innerHTML = resumeDernierControle(etat); })

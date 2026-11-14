@@ -496,3 +496,72 @@ Clears the history of one Bande (`bande` given) or the whole history (no `bande`
 screen. Body: `{ "motDePasse": "…", "bande": 12 }`. Response 200: `{ "data": { "supprimees": 47 } }`.
 One line is then written so a trace remains: "Historique effacé : 47 opérations supprimées"
 (module `parametres`) or "Historique de la bande « … » effacé : 13 opérations supprimées" (module `bandes`).
+
+## Phase 7b — Ventes
+
+Birds sold to a customer. Sold birds leave the flock: they are taken from the **healthy** birds of each sex
+group, and the flock checks (coherence, day by day) count a sale like a death of healthy birds. The view
+`mouvement_troupeau` (migration 011) reads health declarations and sales together.
+
+Every sale gets an invoice number `V<année>-<n°>` (`V2026-0001`, …), numbered per year of the sale date and
+**never given twice**, even after the sale or its Bande is deleted (table `compteur_facture`).
+
+The Bande object now also has `sante.*.vendus` and `sante.total.vendus`; `vivants` means still on the farm and
+`effectifActuel = recus − morts − vendus`.
+
+### GET /bandes/:bandeId/ventes
+
+```json
+{
+  "data": {
+    "bande": { "id": 12, "…": "…" },
+    "ventes": [
+      { "id": 3, "numero": "V2026-0003", "date": "2026-11-14", "client": "Ferme Atlas SARL", "typeClient": "societe",
+        "males": 300, "femelles": 200, "nonSexes": 0, "oiseaux": 500,
+        "poidsTotalKg": 1275.5, "prixTotal": 19132.5,
+        "poidsMoyenKg": 2.551, "prixParOiseau": 38.27, "prixParKg": 15,
+        "description": "Payé par chèque", "creeLe": "…", "modifieLe": null }
+    ],
+    "resume": {
+      "nombre": 1, "oiseaux": 500, "poidsKg": 1275.5, "total": 19132.5,
+      "poidsMoyenKg": 2.551, "prixMoyenKg": 15, "prixMoyenOiseau": 38.27,
+      "coutTotal": 21000, "resultat": -1867.5
+    }
+  }
+}
+```
+
+`coutTotal` is the Charges `coutTotal` (chicks + charges + workers); `resultat = total − coutTotal`.
+Per-bird weight and price are estimations (totals ÷ birds).
+
+### POST /bandes/:bandeId/ventes · PUT /bandes/:bandeId/ventes/:id
+
+Body:
+
+```json
+{ "date": "2026-11-14", "client": "Ferme Atlas SARL", "typeClient": "societe",
+  "males": 300, "femelles": 200, "nonSexes": 0,
+  "poidsTotalKg": "1 275,5 kg", "prixTotal": "19 132,50", "description": "" }
+```
+
+- `typeClient`: `particulier` or `societe`. Counts: integers ≥ 0, at least one bird.
+- `poidsTotalKg` > 0: number, or text with `kg` (default), `g` or `t`. `prixTotal` ≥ 0, required.
+- Date between the Bande start and today. A client already known keeps its first spelling.
+
+Response (201 / 200): the same object as GET plus `"vente": { … }` (the sale just saved, for its invoice).
+Errors: 400 `VALIDATION` (fields), 409 `CONFLIT` when there aren't enough healthy birds
+("Pas assez de mâles en bonne santé au 14/11/2026 : il en manquerait 12."), 404 `INTROUVABLE`.
+
+### DELETE /bandes/:bandeId/ventes/:id
+
+Body `{ "motDePasse": "…" }`. The birds come back to the flock; the number is not reused.
+Response 200: same object as GET.
+
+### GET /ventes/clients
+
+Customers of earlier sales (all Bandes), most frequent first:
+`{ "data": [ { "client": "Ferme Atlas SARL", "typeClient": "societe" } ] }`
+
+History (module `ventes`): "Vente n° V2026-0003 à Ferme Atlas SARL (société), le 14/11/2026 — 300 mâles et
+200 femelles, 1 275,5 kg, 19 132,50 DH", "Vente n° … modifiée : prix … → …", "Vente supprimée : … (les oiseaux
+reviennent dans le troupeau)".

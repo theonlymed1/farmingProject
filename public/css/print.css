@@ -78,3 +78,9 @@ body.impression-recu .zone-recu { display: block !important; }
 /* Historique */
 .tableau-historique { font-size: 9pt; }
 .tableau-historique .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+/* Ventes */
+.indicateur-benefice, .indicateur-perte, .facture-total { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.tableau-ventes { font-size: 9pt; }
+.facture .tableau-facture { font-size: 11pt; }
+.facture-total { font-size: 14pt; }

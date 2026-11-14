@@ -28,34 +28,38 @@ function calculer(b) {
   const aujourdhui = jourIso(new Date());
   const statut = aujourdhui < b.dateDebut ? 'a_venir' : aujourdhui > dateFin ? 'terminee' : 'en_cours';
   const ageJours = Math.round((Date.parse(aujourdhui) - Date.parse(b.dateDebut)) / 864e5) + 1;
-  const mv = lireMouvements().filter((m) => m.bandeId === b.id);
+  // Sales count like healthy birds leaving the flock (type 'vente', see migration 011).
+  const mv = [...lireMouvements(), ...lireVentesMock().map((v) => ({ ...v, type: 'vente' }))].filter((m) => m.bandeId === b.id);
   const somme = (f) => mv.reduce((t, m) => t + f(m), 0);
   // Same rules as server/modules/volaille/coherence.js (every chick starts non-sexed and healthy).
   const effet = (m, cle, etatSante) => {
     if (etatSante === 'malades') return { maladie: m[cle], guerison: -m[cle], mort: m.provenance === 'malades' ? -m[cle] : 0 }[m.type] ?? 0;
     const sexage = cle === 'nonSexes' ? -(m.males + m.femelles) : m[cle];
     return {
-      maladie: -m[cle], guerison: m[cle], mort: m.provenance === 'sains' ? -m[cle] : 0, sexage,
+      maladie: -m[cle], guerison: m[cle], mort: m.provenance === 'sains' ? -m[cle] : 0, sexage, vente: -m[cle],
     }[m.type] ?? 0;
   };
   const groupe = (cle, depart) => {
     const sains = depart + somme((m) => effet(m, cle, 'sains'));
     const malades = somme((m) => effet(m, cle, 'malades'));
     const morts = somme((m) => (m.type === 'mort' ? m[cle] : 0));
+    const vendus = somme((m) => (m.type === 'vente' ? m[cle] : 0));
     return {
-      sains, malades, morts, vivants: sains + malades,
+      sains, malades, morts, vendus, vivants: sains + malades,
     };
   };
   const males = groupe('males', 0);
   const femelles = groupe('femelles', 0);
   const nonSexes = groupe('nonSexes', b.nombrePoussins);
   const morts = males.morts + femelles.morts + nonSexes.morts;
+  const vendus = males.vendus + femelles.vendus + nonSexes.vendus;
   const tot = {
     recus: b.nombrePoussins,
     sains: males.sains + femelles.sains + nonSexes.sains,
     malades: males.malades + femelles.malades + nonSexes.malades,
     morts,
-    vivants: b.nombrePoussins - morts,
+    vendus,
+    vivants: b.nombrePoussins - morts - vendus,
     tauxMortalite: Math.round((morts / b.nombrePoussins) * 10000) / 100,
   };
   return {
@@ -133,6 +137,64 @@ function etatCroissance(id) {
   const actuel = points.filter((x) => x.passe).at(-1);
   if (actuel) actuel.actuel = true;
   return { bande, config: { periodeJours: p }, points };
+}
+
+// --- Simulated sales (same rules as server/modules/ventes/service.js) --------------------
+const lireVentesMock = () => JSON.parse(sessionStorage.getItem('mock-ventes') ?? '[]');
+const ecrireVentesMock = (l) => sessionStorage.setItem('mock-ventes', JSON.stringify(l));
+const arr = (n, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
+function venteJson(v) {
+  const oiseaux = v.males + v.femelles + v.nonSexes;
+  return {
+    ...v,
+    oiseaux,
+    poidsMoyenKg: arr(v.poidsTotalKg / oiseaux, 3),
+    prixParOiseau: arr(v.prixTotal / oiseaux),
+    prixParKg: arr(v.prixTotal / v.poidsTotalKg),
+  };
+}
+function etatVentes(id) {
+  const bande = calculer(trouverBande(id));
+  const ventes = lireVentesMock().filter((v) => v.bandeId === Number(id)).map(venteJson)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  const oiseaux = ventes.reduce((t, v) => t + v.oiseaux, 0);
+  const poidsKg = arr(ventes.reduce((t, v) => t + v.poidsTotalKg, 0), 3);
+  const total = arr(ventes.reduce((t, v) => t + v.prixTotal, 0));
+  const { coutTotal } = etatCharges(id).resume;
+  return {
+    bande,
+    ventes,
+    resume: {
+      nombre: ventes.length, oiseaux, poidsKg, total,
+      poidsMoyenKg: oiseaux ? arr(poidsKg / oiseaux, 3) : 0,
+      prixMoyenKg: poidsKg ? arr(total / poidsKg) : 0,
+      prixMoyenOiseau: oiseaux ? arr(total / oiseaux) : 0,
+      coutTotal,
+      resultat: arr(total - coutTotal),
+    },
+  };
+}
+function validerVenteMock(c, bande, ancienne = null) {
+  const champs = {};
+  const nb = (x) => (x === '' || x == null ? 0 : Number(x));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(c.date ?? '')) champs.date = 'La date est obligatoire (format jj/mm/aaaa).';
+  else if (c.date < bande.dateDebut) champs.date = 'La date ne peut pas être avant le début de la bande.';
+  if (!c.client?.trim()) champs.client = 'Le nom du client est obligatoire.';
+  if (!['particulier', 'societe'].includes(c.typeClient)) champs.typeClient = 'Choisissez : particulier ou société.';
+  const v = { males: nb(c.males), femelles: nb(c.femelles), nonSexes: nb(c.nonSexes) };
+  if (v.males + v.femelles + v.nonSexes === 0) champs.males = 'Indiquez au moins un oiseau vendu (mâle, femelle ou non sexé).';
+  if (!(c.poidsTotalKg > 0)) champs.poidsTotalKg = 'Le poids total est obligatoire.';
+  if (c.prixTotal == null) champs.prixTotal = 'Le prix total est obligatoire.';
+  if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
+  const libelles = { males: 'de mâles', femelles: 'de femelles', nonSexes: 'd’oiseaux non sexés' };
+  for (const k of ['males', 'femelles', 'nonSexes']) {
+    const dispo = bande.sante[k].sains + (ancienne?.[k] ?? 0);
+    if (v[k] > dispo) throw new ErreurApi(409, 'CONFLIT', `Pas assez ${libelles[k]} en bonne santé : il en manquerait ${v[k] - dispo}.`);
+  }
+  return {
+    date: c.date, client: c.client.trim(), typeClient: c.typeClient, ...v,
+    poidsTotalKg: c.poidsTotalKg, prixTotal: c.prixTotal, description: c.description?.trim() || null,
+  };
 }
 
 // --- Simulated charges ------------------------------------------------------------------
@@ -230,6 +292,70 @@ function majEmployeMock(eid, f) {
 }
 
 const routes = [
+  {
+    methode: 'GET',
+    motif: /^\/ventes\/clients$/,
+    reponse: () => {
+      exigerConnexion();
+      const vus = new Map();
+      for (const v of lireVentesMock()) {
+        const k = v.client.toLowerCase();
+        vus.set(k, { client: vus.get(k)?.client ?? v.client, typeClient: v.typeClient });
+      }
+      return [...vus.values()];
+    },
+  },
+  {
+    methode: 'GET',
+    motif: /^\/bandes\/(\d+)\/ventes$/,
+    reponse: ({ params: [id] }) => { exigerConnexion(); return etatVentes(id); },
+  },
+  {
+    methode: 'POST',
+    motif: /^\/bandes\/(\d+)\/ventes$/,
+    reponse: ({ params: [id], corps }) => {
+      exigerConnexion();
+      const v = validerVenteMock(corps, calculer(trouverBande(id)));
+      const l = lireVentesMock();
+      const deja = l.find((x) => x.client.toLowerCase() === v.client.toLowerCase());
+      if (deja) v.client = deja.client;
+      const annee = v.date.slice(0, 4);
+      const dernier = Math.max(0, ...l.filter((x) => x.numero.startsWith(`V${annee}-`)).map((x) => Number(x.numero.slice(6))));
+      const nouvelle = {
+        id: (l.at(-1)?.id ?? 0) + 1, numero: `V${annee}-${String(dernier + 1).padStart(4, '0')}`, bandeId: Number(id), ...v,
+        creeLe: new Date().toISOString(), modifieLe: null,
+      };
+      l.push(nouvelle);
+      ecrireVentesMock(l);
+      return { ...etatVentes(id), vente: venteJson(nouvelle) };
+    },
+  },
+  {
+    methode: 'PUT',
+    motif: /^\/bandes\/(\d+)\/ventes\/(\d+)$/,
+    reponse: ({ params: [id, vid], corps }) => {
+      exigerConnexion();
+      const l = lireVentesMock();
+      const ancienne = l.find((x) => x.id === Number(vid));
+      if (!ancienne) throw new ErreurApi(404, 'INTROUVABLE', 'Cette vente n’existe pas ou a été supprimée.');
+      const v = validerVenteMock(corps, calculer(trouverBande(id)), ancienne);
+      const maj = { ...ancienne, ...v, modifieLe: new Date().toISOString() };
+      ecrireVentesMock(l.map((x) => (x.id === maj.id ? maj : x)));
+      return { ...etatVentes(id), vente: venteJson(maj) };
+    },
+  },
+  {
+    methode: 'DELETE',
+    motif: /^\/bandes\/(\d+)\/ventes\/(\d+)$/,
+    reponse: ({ params: [id, vid], corps }) => {
+      exigerConnexion();
+      if (corps.motDePasse !== MOCK_MOT_DE_PASSE) {
+        throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', { motDePasse: 'Mot de passe incorrect.' });
+      }
+      ecrireVentesMock(lireVentesMock().filter((x) => x.id !== Number(vid)));
+      return etatVentes(id);
+    },
+  },
   {
     // The simulation keeps no history: the real server records every operation.
     methode: 'GET',

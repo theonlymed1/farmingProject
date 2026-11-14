@@ -8,6 +8,8 @@
 //   guerison : sick → healthy           (same sex group)
 //   mort     : healthy or sick → dead   (provenance 'sains' / 'malades')
 //   sexage   : healthy non-sexed → healthy males (males) and healthy females (femelles)
+//   vente    : healthy → sold (out of the flock), from table vente
+// Declarations and sales are read together from the view mouvement_troupeau (migration 011).
 import { erreurs } from '../../lib/erreurs.js';
 import { dateFr, nombreFr } from '../../lib/validation.js';
 
@@ -23,6 +25,7 @@ function effet(col, etatSante) {
   return `CASE type WHEN 'maladie' THEN -${col} WHEN 'guerison' THEN ${col}
                     WHEN 'mort' THEN CASE WHEN provenance = 'sains' THEN -${col} ELSE 0 END
                     WHEN 'sexage' THEN ${sexage}
+                    WHEN 'vente' THEN -${col}
                     ELSE 0 END`;
 }
 
@@ -47,13 +50,13 @@ const GROUPES = [
 export async function verifierCoherence(client, bandeId) {
   const { rows: [avant] } = await client.query(
     `SELECT min(m.date_mouvement) AS premiere, b.date_debut
-       FROM bande b LEFT JOIN mouvement_sante m ON m.bande_id = b.id
+       FROM bande b LEFT JOIN mouvement_troupeau m ON m.bande_id = b.id
       WHERE b.id = $1 GROUP BY b.id`,
     [bandeId],
   );
   if (avant?.premiere && avant.premiere < avant.date_debut) {
     throw erreurs.conflit(
-      `Des déclarations de santé existent dès le ${dateFr(avant.premiere)}, `
+      `Des déclarations ou des ventes existent dès le ${dateFr(avant.premiere)}, `
       + `avant la date de début de la bande (${dateFr(avant.date_debut)}).`,
     );
   }
@@ -64,7 +67,7 @@ export async function verifierCoherence(client, bandeId) {
               SUM(${SQL_EFFET.sainsMales})      AS ds_m, SUM(${SQL_EFFET.maladesMales})    AS dm_m,
               SUM(${SQL_EFFET.sainsFemelles})   AS ds_f, SUM(${SQL_EFFET.maladesFemelles}) AS dm_f,
               SUM(${SQL_EFFET.sainsNonSexes})   AS ds_n, SUM(${SQL_EFFET.maladesNonSexes}) AS dm_n
-         FROM mouvement_sante WHERE bande_id = $1
+         FROM mouvement_troupeau WHERE bande_id = $1
         GROUP BY date_mouvement
      ), c AS (
        SELECT jour,

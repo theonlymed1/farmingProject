@@ -1,5 +1,5 @@
 // Flock table (males / females / non-sexed / total), shared by the Bande page and the
-// "Mortalité et malades" page — on screen and on paper.
+// "Mortalité et malades" page — on screen and on paper. Sold birds are no longer on the farm.
 import { formaterNombre } from './format.js';
 
 const pct = (n) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`;
@@ -11,6 +11,7 @@ function ligne(libelle, g) {
     <td class="nombre">${formaterNombre(g.malades)}</td>
     <td class="nombre">${formaterNombre(g.vivants)}</td>
     <td class="nombre">${formaterNombre(g.morts)}</td>
+    <td class="nombre">${formaterNombre(g.vendus ?? 0)}</td>
   </tr>`;
 }
 
@@ -18,7 +19,8 @@ export function tableauSante(sante) {
   return `
     <p class="resume-troupeau">
       Poussins reçus : <strong>${formaterNombre(sante.total.recus)}</strong> ·
-      Vivants : <strong>${formaterNombre(sante.total.vivants)}</strong> ·
+      Vivants (sur la ferme) : <strong>${formaterNombre(sante.total.vivants)}</strong> ·
+      Vendus : <strong>${formaterNombre(sante.total.vendus ?? 0)}</strong> ·
       Mortalité : <strong>${pct(sante.total.tauxMortalite)}</strong>
     </p>
     <table class="tableau tableau-sante">
@@ -29,6 +31,7 @@ export function tableauSante(sante) {
           <th scope="col" class="nombre">Malades</th>
           <th scope="col" class="nombre">Vivants</th>
           <th scope="col" class="nombre">Morts</th>
+          <th scope="col" class="nombre">Vendus</th>
         </tr>
       </thead>
       <tbody>

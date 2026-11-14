@@ -5,7 +5,7 @@ import { exigerMotDePasse } from '../auth/service.js';
 import { erreurs } from '../../lib/erreurs.js';
 import { date, entier, idParam } from '../../lib/validation.js';
 
-export const MODULES = ['bandes', 'volaille', 'croissance', 'charges', 'employes', 'parametres'];
+export const MODULES = ['bandes', 'volaille', 'croissance', 'charges', 'ventes', 'employes', 'parametres'];
 export const ACTIONS = ['creation', 'modification', 'suppression', 'autre'];
 
 /**

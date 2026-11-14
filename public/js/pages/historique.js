@@ -21,6 +21,7 @@ const SECTIONS = {
   volaille: 'Mortalité et malades',
   croissance: 'Croissance',
   charges: 'Charges',
+  ventes: 'Ventes',
   employes: 'Employés',
   parametres: 'Paramètres',
 };
@@ -124,6 +125,9 @@ const LIBELLES = {
   salaireJournalier: 'Salaire / jour (DH)', dateDepart: 'Date de départ', joursTravailles: 'Jours travaillés',
   joursRepos: 'Jours de repos', joursPeriode: 'Jours de la période', semaines: 'Semaines', totalAvances: 'Avances (DH)',
   salaireTotal: 'Salaire total (DH)', solde: 'Solde (DH)', cout: 'Coût (DH)', jusquAu: 'Jusqu’au',
+  numero: 'N° de facture', client: 'Client', typeClient: 'Type de client', oiseaux: 'Oiseaux',
+  poidsTotalKg: 'Poids total (kg)', poidsMoyenKg: 'Poids par oiseau (kg)', prixParOiseau: 'Prix par oiseau (DH)',
+  prixParKg: 'Prix au kg (DH)',
 };
 const CACHES = new Set(['id', 'creeLe', 'modifieLe', 'bandeId']);
 
@@ -137,8 +141,11 @@ function aplatir(objet, resultat = new Map()) {
   return resultat;
 }
 
+const VALEURS = { particulier: 'Particulier', societe: 'Société' };
+
 function texteValeur(v) {
   if (v === null || v === undefined || v === '') return '—';
+  if (Object.hasOwn(VALEURS, v)) return VALEURS[v];
   if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return formaterDate(v);
   if (typeof v === 'number') return v.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
   if (Array.isArray(v)) return `${v.length} élément${v.length > 1 ? 's' : ''}`;
