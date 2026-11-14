@@ -8,6 +8,7 @@ import { exigerConnexion, protegerPages } from './modules/auth/middleware.js';
 import santeRoutes from './modules/sante/routes.js';
 import bandesRoutes from './modules/bandes/routes.js';
 import volailleRoutes from './modules/volaille/routes.js';
+import croissanceRoutes from './modules/croissance/routes.js';
 
 export function creerApp() {
   const app = express();
@@ -24,6 +25,7 @@ export function creerApp() {
   api.use(exigerConnexion);
   api.use('/sante', santeRoutes);
   api.use('/bandes/:bandeId/volaille', volailleRoutes);
+  api.use('/bandes/:bandeId/croissance', croissanceRoutes);
   api.use('/bandes', bandesRoutes);
   // New modules are mounted here, one line each, as phases land:
   // api.use('/bandes/:bandeId/charges', chargesRoutes) // phase 6 …

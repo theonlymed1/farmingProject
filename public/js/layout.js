@@ -8,7 +8,7 @@ import { echapper } from './ui.js';
 const MENU_BANDE = [
   { page: 'bande', libelle: 'Tableau de bord', disponible: true, param: 'id' },
   { page: 'volaille', libelle: 'Mortalité et malades', disponible: true },
-  { page: 'croissance', libelle: 'Croissance et pesées', disponible: false },
+  { page: 'croissance', libelle: 'Croissance et pesées', disponible: true },
   { page: 'charges', libelle: 'Charges', disponible: false },
   { page: 'employes', libelle: 'Employés', disponible: false },
   { page: 'historique', libelle: 'Historique', disponible: false },

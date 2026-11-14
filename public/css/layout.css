@@ -96,7 +96,7 @@
 .formulaire-etroit { max-width: 480px; }
 
 /* --- Content -------------------------------------------------------------- */
-.contenu { grid-area: contenu; padding: var(--e5); max-width: 1200px; }
+.contenu { grid-area: contenu; padding: var(--e5); max-width: 1200px; min-width: 0; }
 
 @media (max-width: 800px) {
   .mise-en-page { grid-template-columns: 1fr; grid-template-areas: "entete" "menu" "contenu"; }
@@ -209,3 +209,50 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .badge-mort { background: var(--rouge-100); color: var(--rouge-600); }
 
 .visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* --- Croissance et pesées ------------------------------------------------------ */
+:root { --vert-ecart: #d4f0d8; --rouge-ecart: #f9d7d3; }
+.ecart-positif { background: var(--vert-ecart); color: #1d5a2a; }
+.ecart-negatif { background: var(--rouge-ecart); color: #8f1c13; }
+.pastille { padding: 0 var(--e2); border-radius: 999px; font-weight: 600; }
+.defilement-tableau { overflow-x: auto; }
+.grille-croissance { min-width: 820px; }
+.grille-croissance th, .grille-croissance td { padding: var(--e1) var(--e2); white-space: nowrap; }
+.grille-croissance thead th.groupe { text-align: center; border-bottom: 1px solid var(--couleur-bordure); }
+.grille-croissance tbody tr:hover { background: none; }
+.grille-croissance tbody tr:hover td.cellule-saisie, .grille-croissance tbody tr:hover th { background: var(--gris-100); }
+.grille-croissance .ligne-actuelle th, .grille-croissance .ligne-actuelle td.cellule-saisie { background: var(--ambre-100); }
+.cellule-saisie input {
+  width: 76px;
+  font: inherit;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding: var(--e1) var(--e2);
+  border: 1px solid var(--couleur-bordure);
+  border-radius: 4px;
+  background: var(--blanc);
+}
+.cellule-saisie input:focus { outline: 2px solid var(--couleur-principale); border-color: var(--couleur-principale); }
+.cellule-saisie input.saisie-modifiee { border-color: var(--ambre-600); background: var(--ambre-100); }
+.cellule-saisie input.saisie-invalide { border-color: var(--rouge-600); background: var(--rouge-100); }
+.cellule-ecart { font-weight: 600; font-size: 0.85rem; }
+
+.barre-enregistrer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--e3);
+  padding: var(--e3) var(--e4);
+  margin: 0 calc(-1 * var(--e5)) calc(-1 * var(--e5));
+  background: var(--blanc);
+  border-top: 1px solid var(--couleur-bordure);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
+.barre-enregistrer span { margin-right: auto; color: var(--couleur-texte-discret); }
+.barre-active { background: var(--ambre-100); }
+.barre-active span { color: #7a4f10; font-weight: 600; }
+
+.tableau-compact { max-width: 560px; }
+.tableau-compact th, .tableau-compact td { padding: var(--e1) var(--e3); }

@@ -260,3 +260,49 @@ Historique: yes — "Déclaration de morts : 3 mâles, qui étaient en bonne san
 Cancels a declaration made by mistake. Response `204`.
 409 `CONFLIT` if later declarations depend on it (e.g. cancelling a "malades" declaration whose birds were later declared cured).
 Historique: yes — "Déclaration de morts annulée : …".
+
+---
+
+## Phase 4 — Croissance et pesées
+
+Each Bande has its own guide: a check frequency (`periodeJours`, 1–60, 7 = weekly) and a unit
+(`g` or `kg`, display only). **All weights in the API are in grams** (0.1 – 99 999.9, one decimal).
+Check number `rang` falls `rang × periodeJours` days after the start date. The table covers the
+Bande's whole duration (4 months weekly = 17 checks), plus any later check that already has values.
+
+A point:
+
+```json
+{
+  "rang": 1, "libelle": "Semaine 1", "jourApresArrivee": 7, "date": "2026-10-29",
+  "guideMales": 180, "observeMales": 195.5, "guideFemelles": 170, "observeFemelles": 160,
+  "ecartMales": { "valeur": 15.5, "pourcent": 8.6, "positif": true },
+  "ecartFemelles": { "valeur": -10, "pourcent": -5.9, "positif": false },
+  "passe": true, "actuel": true
+}
+```
+
+`ecart` = observed − guide (null if one is missing). `positif` is true when observed ≥ guide
+(light green), false when below (light red). `actuel` marks the latest check whose date has arrived.
+
+### GET /bandes/:bandeId/croissance
+
+Response 200: `{ "data": { "bande": Bande, "config": { "periodeJours": 7, "unite": "kg" } | null, "points": [ … ] } }`.
+`config` is null (and `points` empty) until the guide is configured. Historique: no.
+
+### PUT /bandes/:bandeId/croissance/config
+
+Body: `{ "periodeJours": 7, "unite": "kg" }`. Response 200: same as GET.
+Changing the unit keeps every value (they are in grams). Changing the frequency when values exist
+returns 409 `CONFLIT` with `details.confirmationRequise: true`; resend with
+`"confirmerEffacement": true` to clear them.
+Historique: yes — "Guide de croissance configuré : contrôle chaque semaine, en kilogrammes" /
+"Guide de croissance modifié : unité kilogrammes → grammes".
+
+### PUT /bandes/:bandeId/croissance/valeurs
+
+Body: `{ "points": [ { "rang": 1, "guideMales": 180, "observeMales": 195.5 }, { "rang": 2, "guideMales": null } ] }`.
+Only the keys sent are changed; `null` empties a cell. Response 200: same as GET.
+Errors: 409 `CONFLIT` if not configured; 400 `VALIDATION` with `details` keyed `"<rang>-<colonne>"`.
+Historique: yes, one line per save listing the changes —
+"Croissance : Semaine 1 observé mâles vide → 0,196 kg ; …" (first 12, then "et N autres modifications").

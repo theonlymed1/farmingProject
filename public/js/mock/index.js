@@ -84,7 +84,77 @@ function trouverBande(id) {
   return b;
 }
 
+// --- Simulated growth guide (same rules as server/modules/croissance/calcul.js) ---------
+const lireCroissance = () => JSON.parse(sessionStorage.getItem('mock-croissance') ?? '{}');
+const ecrireCroissance = (o) => sessionStorage.setItem('mock-croissance', JSON.stringify(o));
+const plusJours = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
+const ecartMock = (g, o) => (g == null || o == null ? null : {
+  valeur: Math.round((o - g) * 10) / 10, pourcent: Math.round(((o - g) / g) * 1000) / 10, positif: o >= g,
+});
+function etatCroissance(id) {
+  const bande = calculer(trouverBande(id));
+  const c = lireCroissance()[id];
+  if (!c) return { bande, config: null, points: [] };
+  const p = c.periodeJours;
+  const n = Math.max(1, Math.floor((Date.parse(bande.dateFin) - Date.parse(bande.dateDebut)) / 864e5 / p), ...Object.keys(c.valeurs).map(Number));
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  const points = Array.from({ length: n }, (_, i) => {
+    const rang = i + 1; const v = c.valeurs[rang] ?? {};
+    const pt = {
+      rang, libelle: p === 7 ? `Semaine ${rang}` : p === 1 ? `Jour ${rang}` : `Contrôle ${rang}`,
+      jourApresArrivee: rang * p, date: plusJours(bande.dateDebut, rang * p),
+      guideMales: v.guideMales ?? null, observeMales: v.observeMales ?? null,
+      guideFemelles: v.guideFemelles ?? null, observeFemelles: v.observeFemelles ?? null,
+    };
+    pt.ecartMales = ecartMock(pt.guideMales, pt.observeMales);
+    pt.ecartFemelles = ecartMock(pt.guideFemelles, pt.observeFemelles);
+    pt.passe = pt.date <= aujourdhui;
+    return pt;
+  });
+  const actuel = points.filter((x) => x.passe).at(-1);
+  if (actuel) actuel.actuel = true;
+  return { bande, config: { periodeJours: p, unite: c.unite }, points };
+}
+
 const routes = [
+  {
+    methode: 'GET',
+    motif: /^\/bandes\/(\d+)\/croissance$/,
+    reponse: ({ params: [id] }) => { exigerConnexion(); return etatCroissance(id); },
+  },
+  {
+    methode: 'PUT',
+    motif: /^\/bandes\/(\d+)\/croissance\/config$/,
+    reponse: ({ params: [id], corps }) => {
+      exigerConnexion();
+      const tout = lireCroissance();
+      const avant = tout[id];
+      const n = avant ? Object.keys(avant.valeurs).length : 0;
+      if (avant && avant.periodeJours !== corps.periodeJours && n && !corps.confirmerEffacement) {
+        throw new ErreurApi(409, 'CONFLIT', `Changer la fréquence effacera ${n > 1 ? `les ${n} contrôles déjà saisis` : 'le contrôle déjà saisi'}. Confirmez pour continuer.`, { confirmationRequise: true, nombreControles: n });
+      }
+      const garder = avant && avant.periodeJours === corps.periodeJours;
+      tout[id] = { periodeJours: corps.periodeJours, unite: corps.unite, valeurs: garder ? avant.valeurs : {} };
+      ecrireCroissance(tout);
+      return etatCroissance(id);
+    },
+  },
+  {
+    methode: 'PUT',
+    motif: /^\/bandes\/(\d+)\/croissance\/valeurs$/,
+    reponse: ({ params: [id], corps }) => {
+      exigerConnexion();
+      const tout = lireCroissance();
+      for (const ligne of corps.points) {
+        const v = { ...(tout[id].valeurs[ligne.rang] ?? {}) };
+        for (const k of ['guideMales', 'observeMales', 'guideFemelles', 'observeFemelles']) if (k in ligne) v[k] = ligne[k];
+        if (Object.values(v).every((x) => x == null)) delete tout[id].valeurs[ligne.rang];
+        else tout[id].valeurs[ligne.rang] = v;
+      }
+      ecrireCroissance(tout);
+      return etatCroissance(id);
+    },
+  },
   {
     methode: 'GET',
     motif: /^\/bandes\/(\d+)\/volaille$/,

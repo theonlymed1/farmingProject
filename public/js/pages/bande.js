@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { formaterDate, formaterNombre, formaterDateHeure } from '../format.js';
 import { echapper, afficherErreur, afficherSucces } from '../ui.js';
 import { tableauSante } from '../volaille-commun.js';
+import { resumeDernierControle } from '../croissance-commun.js';
 import {
   STATUTS, badgeStatut, ouvrirFormulaireBande, confirmerSuppressionBande,
 } from '../bandes-commun.js';
@@ -17,7 +18,7 @@ const id = Number(new URLSearchParams(location.search).get('id'));
 // page = null while the feature isn't built yet.
 const FONCTIONNALITES = [
   ['Mortalité et malades', 'Déclarer des malades, des guérisons et des morts', 'volaille'],
-  ['Croissance et pesées', 'Guide du fournisseur et pesées hebdomadaires', null],
+  ['Croissance et pesées', 'Guide du fournisseur et poids observés', 'croissance'],
   ['Charges', 'Aliment, gaz, paille, vaccins…', null],
   ['Employés', 'Avances, jours travaillés, règlement', null],
   ['Historique', 'Toutes les opérations de la bande', null],
@@ -87,6 +88,14 @@ function afficher(b) {
       ${tableauSante(b.sante)}
     </section>
 
+    <section class="carte" aria-labelledby="titre-croissance">
+      <div class="titre-section">
+        <h2 id="titre-croissance">Croissance</h2>
+        <a class="no-print" href="/pages/croissance.html?bande=${b.id}">Croissance et pesées →</a>
+      </div>
+      <div id="resume-croissance">Chargement…</div>
+    </section>
+
     <section class="carte no-print" aria-labelledby="titre-fonctions">
       <h2 id="titre-fonctions">Gestion de la bande</h2>
       <div class="grille-fonctions">
@@ -101,6 +110,10 @@ function afficher(b) {
     </section>`;
 
   document.getElementById('bouton-imprimer-fiche').addEventListener('click', () => window.print());
+
+  api.get(`/bandes/${b.id}/croissance`)
+    .then((etat) => { document.getElementById('resume-croissance').innerHTML = resumeDernierControle(etat); })
+    .catch((e) => afficherErreur(document.getElementById('resume-croissance'), e));
 
   document.getElementById('bouton-modifier').addEventListener('click', async () => {
     // Reload so the menu, the page title and the print header show the new name too.

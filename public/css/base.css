@@ -45,6 +45,9 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* The hidden attribute always wins over display: flex / grid set by a class. */
+[hidden] { display: none !important; }
+
 html { font-size: var(--taille-base); }
 
 body {
@@ -123,6 +126,7 @@ a { color: var(--couleur-principale); }
 .tableau { width: 100%; border-collapse: collapse; background: var(--blanc); }
 .tableau th, .tableau td { padding: var(--e2) var(--e3); border-bottom: 1px solid var(--couleur-bordure); text-align: left; }
 .tableau th { background: var(--gris-100); font-weight: 600; font-size: 0.9rem; }
+.tableau .nombre { text-align: right; }
 .tableau tbody tr:hover { background: var(--vert-100); }
 .tableau tfoot td { font-weight: 700; border-top: 2px solid var(--gris-700); }
 

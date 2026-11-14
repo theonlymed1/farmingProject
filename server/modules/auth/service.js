@@ -30,6 +30,7 @@ export async function assurerUtilisateurParDefaut() {
 
   const identifiant = config.auth.identifiantParDefaut;
   const motDePasse = genererMotDePasse();
+  const fichier = path.join(config.dossierDonnees, 'identifiants-initiaux.txt');
   await transaction(async (client) => {
     const { rows: [u] } = await client.query(
       'INSERT INTO utilisateur (identifiant, mot_de_passe_hash) VALUES ($1, $2) RETURNING id',
@@ -39,18 +40,19 @@ export async function assurerUtilisateurParDefaut() {
       module: 'parametres', action: 'creation', entiteId: u.id,
       description: `Compte « ${identifiant} » créé au premier démarrage`,
     });
+    // Written BEFORE the commit: if the file can't be written, the account isn't created either
+    // (otherwise it would exist with a password nobody has seen).
+    fs.mkdirSync(config.dossierDonnees, { recursive: true });
+    fs.writeFileSync(fichier, [
+      'Plateforme avicole — identifiants initiaux',
+      `Identifiant : ${identifiant}`,
+      `Mot de passe : ${motDePasse}`,
+      '',
+      'Notez-les, puis supprimez ce fichier.',
+      'Pour choisir un autre mot de passe : npm run mot-de-passe -- "NouveauMotDePasse"',
+      '',
+    ].join('\n'), 'utf8');
   });
-
-  const fichier = path.join(config.dossierDonnees, 'identifiants-initiaux.txt');
-  fs.writeFileSync(fichier, [
-    'Plateforme avicole — identifiants initiaux',
-    `Identifiant : ${identifiant}`,
-    `Mot de passe : ${motDePasse}`,
-    '',
-    'Notez-les, puis supprimez ce fichier.',
-    'Pour choisir un autre mot de passe : npm run mot-de-passe -- "NouveauMotDePasse"',
-    '',
-  ].join('\n'), 'utf8');
 
   console.log('');
   console.log('==============================================================');

@@ -31,6 +31,9 @@ body { background: #fff; color: #000; font-size: 11pt; }
 
 .carte { border: 0; box-shadow: none; padding: 0; margin-bottom: 6mm; }
 
+/* On-screen messages don't belong on paper. */
+.alerte-succes, #message .alerte { display: none !important; }
+
 h1 { font-size: 16pt; }
 h2 { font-size: 13pt; }
 
@@ -48,3 +51,10 @@ a { color: #000; text-decoration: none; }
 .carte-bande { box-shadow: none; break-inside: avoid; }
 .grille-bandes { grid-template-columns: repeat(2, 1fr); gap: 4mm; }
 .titre-page { margin-bottom: 4mm; }
+
+/* Growth table: inputs print as plain numbers, gap colors kept. */
+.ecart-positif, .ecart-negatif, .ligne-actuelle th, .ligne-actuelle td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.defilement-tableau { overflow: visible; }
+.grille-croissance { min-width: 0; font-size: 9pt; }
+.grille-croissance th, .grille-croissance td { padding: 1.5mm 2mm; }
+.cellule-saisie input { border: 0; background: transparent !important; padding: 0; min-width: 0; font-size: 9pt; }
