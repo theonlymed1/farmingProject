@@ -1,0 +1,75 @@
+/* ==========================================================================
+   Page layout: top bar + side menu + content. Built by js/layout.js.
+   ========================================================================== */
+
+.mise-en-page {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "entete entete"
+    "menu   contenu";
+  min-height: 100vh;
+}
+
+/* --- Top bar -------------------------------------------------------------- */
+.entete {
+  grid-area: entete;
+  display: flex;
+  align-items: center;
+  gap: var(--e4);
+  padding: var(--e2) var(--e4);
+  background: var(--vert-900);
+  color: var(--blanc);
+}
+.entete .marque { font-weight: 700; font-size: 1.1rem; margin-right: auto; }
+.entete .marque small { font-weight: 400; opacity: 0.8; margin-left: var(--e2); }
+
+.selecteur-bande { display: flex; align-items: center; gap: var(--e2); }
+.selecteur-bande label { font-size: 0.9rem; opacity: 0.9; }
+.selecteur-bande select {
+  font: inherit;
+  padding: var(--e1) var(--e2);
+  border-radius: var(--rayon);
+  border: 1px solid transparent;
+  min-width: 200px;
+}
+
+.entete .bouton { background: var(--blanc); color: var(--vert-900); border-color: var(--blanc); }
+.entete .bouton:hover { background: var(--vert-100); }
+
+.badge-mode-mock { background: var(--ambre-600); color: var(--blanc); }
+
+/* --- Side menu ------------------------------------------------------------ */
+.menu {
+  grid-area: menu;
+  background: var(--blanc);
+  border-right: 1px solid var(--couleur-bordure);
+  padding: var(--e3) 0;
+}
+.menu ul { list-style: none; margin: 0; padding: 0; }
+.menu a, .menu span {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--e2) var(--e4);
+  color: var(--couleur-texte);
+  text-decoration: none;
+  border-left: 4px solid transparent;
+}
+.menu a:hover { background: var(--vert-100); }
+.menu a[aria-current="page"] {
+  border-left-color: var(--couleur-principale);
+  background: var(--vert-100);
+  font-weight: 600;
+}
+.menu span { color: var(--gris-500); cursor: default; }
+.menu span small { font-size: 0.75rem; }
+
+/* --- Content -------------------------------------------------------------- */
+.contenu { grid-area: contenu; padding: var(--e5); max-width: 1200px; }
+
+@media (max-width: 800px) {
+  .mise-en-page { grid-template-columns: 1fr; grid-template-areas: "entete" "menu" "contenu"; }
+  .menu { border-right: 0; border-bottom: 1px solid var(--couleur-bordure); }
+}
