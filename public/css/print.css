@@ -74,3 +74,7 @@ body.impression-recu .zone-recu { display: block !important; }
 .recu { font-size: 12pt; max-width: 170mm; }
 .recu .liste-cles { grid-template-columns: 55mm 1fr; }
 .recu-signatures div { min-height: 30mm; }
+
+/* Historique */
+.tableau-historique { font-size: 9pt; }
+.tableau-historique .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

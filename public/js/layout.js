@@ -11,7 +11,7 @@ const MENU_BANDE = [
   { page: 'croissance', libelle: 'Croissance et pesées', disponible: true },
   { page: 'charges', libelle: 'Charges', disponible: true },
   { page: 'employes', libelle: 'Employés', disponible: true },
-  { page: 'historique', libelle: 'Historique', disponible: false },
+  { page: 'historique', libelle: 'Historique', disponible: true },
 ];
 
 function lien({ page, libelle, disponible, href }, pageActive) {
@@ -50,7 +50,10 @@ export function monterLayout({ titre, bande = null }) {
     <nav class="menu" aria-label="Menu principal">
       <ul>${lien({ page: 'bandes', libelle: 'Les bandes', disponible: true }, bande ? null : pageActive)}</ul>
       ${menuBande}
-      <ul class="menu-bas">${lien({ page: 'parametres', libelle: 'Paramètres', disponible: true }, pageActive)}</ul>
+      <ul class="menu-bas">
+        ${lien({ page: 'historique-general', libelle: 'Historique général', disponible: true, href: '/pages/historique.html' }, pageActive)}
+        ${lien({ page: 'parametres', libelle: 'Paramètres', disponible: true }, pageActive)}
+      </ul>
     </nav>`;
 
   // Print-only header at the top of the content.

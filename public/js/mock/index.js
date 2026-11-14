@@ -231,6 +231,12 @@ function majEmployeMock(eid, f) {
 
 const routes = [
   {
+    // The simulation keeps no history: the real server records every operation.
+    methode: 'GET',
+    motif: /^\/historique(\?.*)?$/,
+    reponse: () => { exigerConnexion(); return { total: 0, limite: 100, decalage: 0, entrees: [] }; },
+  },
+  {
     methode: 'GET',
     motif: /^\/bandes\/(\d+)\/employes$/,
     reponse: ({ params: [id] }) => { exigerConnexion(); return etatEmployes(id); },

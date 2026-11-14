@@ -445,3 +445,41 @@ Every endpoint returns `{ "data": { "bande", "employes": [ current first, then d
 The departure ("Supprimer" in the menu) keeps the worker in "Anciens employés"; its response also has
 `depart` = the departed employee, used for the receipt. The Charges summary now has `resume.employes`
 and `coutTotal` = chicks + charges + workers' `cout`.
+
+---
+
+## Phase 7 — Historique
+
+Read-only list of every operation written by `journaliser()` since phase 1. Nothing can be deleted.
+
+### GET /historique
+
+Query parameters (all optional):
+
+| Parameter | Meaning |
+| --- | --- |
+| `bande` | Only this Bande's operations (lines of a deleted Bande keep no `bande` and show in the general view only) |
+| `module` | `bandes` · `volaille` · `croissance` · `charges` · `employes` · `parametres` |
+| `action` | `creation` · `modification` · `suppression` · `autre` |
+| `du`, `au` | `YYYY-MM-DD`, both included (`au` before `du` → 400) |
+| `q` | Words that must all appear in the description (case ignored) |
+| `limite` | 1–500, default 100 |
+| `decalage` | Skip that many lines ("Afficher plus") |
+
+Response 200:
+
+```json
+{
+  "data": {
+    "total": 60, "limite": 100, "decalage": 0,
+    "entrees": [
+      { "id": 88, "dateHeure": "2026-11-14T19:52:10Z", "bandeId": 1, "bandeNom": "Existante",
+        "module": "employes", "action": "modification", "entiteId": 3,
+        "description": "Employé modifié (Ahmed Alaoui) : salaire journalier 100,00 DH → 110,00 DH",
+        "avant": { "salaireJournalier": 100, "…": "…" }, "apres": { "salaireJournalier": 110, "…": "…" } }
+    ]
+  }
+}
+```
+
+Newest first. Errors: 400 `VALIDATION` on bad filters, 404 if `bande` isn't a valid id.

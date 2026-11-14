@@ -11,6 +11,7 @@ import volailleRoutes from './modules/volaille/routes.js';
 import croissanceRoutes from './modules/croissance/routes.js';
 import { routesCharges, routesSuggestions } from './modules/charges/routes.js';
 import employesRoutes from './modules/employes/routes.js';
+import historiqueRoutes from './modules/historique/routes.js';
 
 export function creerApp() {
   const app = express();
@@ -32,6 +33,7 @@ export function creerApp() {
   api.use('/bandes/:bandeId/employes', employesRoutes);
   api.use('/charges', routesSuggestions);
   api.use('/bandes', bandesRoutes);
+  api.use('/historique', historiqueRoutes);
   // New modules are mounted here, one line each, as phases land:
 
   api.use(routeApiInconnue);

@@ -24,7 +24,7 @@ const FONCTIONNALITES = [
   ['Croissance et pesées', 'Guide du fournisseur et poids observés', 'croissance'],
   ['Charges', 'Achats et services : aliment, gaz, vaccins…', 'charges'],
   ['Employés', 'Avances, jours de repos, départ et reçu', 'employes'],
-  ['Historique', 'Toutes les opérations de la bande', null],
+  ['Historique', 'Toutes les opérations de la bande', 'historique'],
 ];
 
 const valeurAge = (b) => ({ a_venir: '—', terminee: 'Terminée' }[b.statut] ?? `Jour ${formaterNombre(b.ageJours)}`);

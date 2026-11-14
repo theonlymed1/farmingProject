@@ -351,3 +351,14 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .tableau-employes thead th { white-space: normal; }
 .champ-recherche { min-width: 220px; }
 .recu .liste-cles + .liste-cles { margin-top: var(--e3); padding-top: var(--e3); border-top: 1px solid var(--couleur-bordure); }
+
+/* --- Historique ---------------------------------------------------------------------- */
+#filtres { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--e3); }
+#filtres .champ { margin-bottom: 0; min-width: 150px; }
+#filtres .champ-large { flex: 1; min-width: 220px; }
+#filtres select { font: inherit; padding: var(--e2); border: 1px solid var(--couleur-bordure); border-radius: var(--rayon); background: var(--blanc); }
+.tableau-historique td, .tableau-historique th { padding: var(--e2); vertical-align: top; }
+.tableau-historique .cellule-date { white-space: nowrap; }
+.plus { text-align: center; margin-top: var(--e3); }
+.tableau-details th[scope="row"] { font-weight: 600; white-space: nowrap; }
+.tableau-details .ligne-changee td, .tableau-details .ligne-changee th { background: var(--ambre-100); }

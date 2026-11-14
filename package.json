@@ -1,6 +1,6 @@
 {
   "name": "plateforme-avicole",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Plateforme de gestion avicole — hors ligne, mono-utilisateur",
   "type": "module",
