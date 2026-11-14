@@ -7,6 +7,7 @@ import { formaterDate, formaterNombre, formaterDateHeure } from '../format.js';
 import { echapper, afficherErreur, afficherSucces } from '../ui.js';
 import { tableauSante } from '../volaille-commun.js';
 import { resumeDernierControle } from '../croissance-commun.js';
+import { tuilesCharges, tableauParType } from '../charges-commun.js';
 import {
   STATUTS, badgeStatut, ouvrirFormulaireBande, confirmerSuppressionBande,
 } from '../bandes-commun.js';
@@ -19,7 +20,7 @@ const id = Number(new URLSearchParams(location.search).get('id'));
 const FONCTIONNALITES = [
   ['Mortalité et malades', 'Déclarer des malades, des guérisons et des morts', 'volaille'],
   ['Croissance et pesées', 'Guide du fournisseur et poids observés', 'croissance'],
-  ['Charges', 'Aliment, gaz, paille, vaccins…', null],
+  ['Charges', 'Achats et services : aliment, gaz, vaccins…', 'charges'],
   ['Employés', 'Avances, jours travaillés, règlement', null],
   ['Historique', 'Toutes les opérations de la bande', null],
 ];
@@ -96,6 +97,14 @@ function afficher(b) {
       <div id="resume-croissance">Chargement…</div>
     </section>
 
+    <section class="carte" aria-labelledby="titre-charges">
+      <div class="titre-section">
+        <h2 id="titre-charges">Charges</h2>
+        <a class="no-print" href="/pages/charges.html?bande=${b.id}">Charges →</a>
+      </div>
+      <div id="resume-charges">Chargement…</div>
+    </section>
+
     <section class="carte no-print" aria-labelledby="titre-fonctions">
       <h2 id="titre-fonctions">Gestion de la bande</h2>
       <div class="grille-fonctions">
@@ -110,6 +119,14 @@ function afficher(b) {
     </section>`;
 
   document.getElementById('bouton-imprimer-fiche').addEventListener('click', () => window.print());
+
+  api.get(`/bandes/${b.id}/charges`)
+    .then((etat) => {
+      document.getElementById('resume-charges').innerHTML = etat.resume.nombre
+        ? `${tuilesCharges(etat.resume)}${tableauParType(etat.resume)}`
+        : '<p class="texte-discret">Aucune charge déclarée pour cette bande.</p>';
+    })
+    .catch((e) => afficherErreur(document.getElementById('resume-charges'), e));
 
   api.get(`/bandes/${b.id}/croissance`)
     .then((etat) => { document.getElementById('resume-croissance').innerHTML = resumeDernierControle(etat); })

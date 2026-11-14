@@ -58,3 +58,11 @@ a { color: #000; text-decoration: none; }
 .grille-croissance { min-width: 0; font-size: 9pt; }
 .grille-croissance th, .grille-croissance td { padding: 1.5mm 2mm; }
 .cellule-saisie input { border: 0; background: transparent !important; padding: 0; min-width: 0; font-size: 9pt; }
+
+/* Charges */
+.indicateur-alerte, .ligne-sans-prix td, .badge-sans-prix { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.tableau-charges { font-size: 9pt; }
+.cellule-description { max-width: none; font-size: inherit; }
+.indicateurs { grid-template-columns: repeat(4, 1fr); gap: 3mm; }
+.indicateur { padding: 2mm 3mm; }
+.indicateur-valeur { font-size: 13pt; }

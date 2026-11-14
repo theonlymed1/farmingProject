@@ -9,7 +9,7 @@ const MENU_BANDE = [
   { page: 'bande', libelle: 'Tableau de bord', disponible: true, param: 'id' },
   { page: 'volaille', libelle: 'Mortalité et malades', disponible: true },
   { page: 'croissance', libelle: 'Croissance et pesées', disponible: true },
-  { page: 'charges', libelle: 'Charges', disponible: false },
+  { page: 'charges', libelle: 'Charges', disponible: true },
   { page: 'employes', libelle: 'Employés', disponible: false },
   { page: 'historique', libelle: 'Historique', disponible: false },
 ];

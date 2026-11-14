@@ -315,3 +315,65 @@ Only the keys sent are changed; `null` empties a cell. Response 200: same as GET
 Errors: 409 `CONFLIT` if not configured; 400 `VALIDATION` with `details` keyed `"<rang>-<colonne>"`.
 Historique: yes, one line per save listing the changes —
 "Croissance : Semaine 1 observé mâles vide → 1,25 kg ; …" (first 12, then "et N autres modifications").
+
+---
+
+## Phase 5 — Charges
+
+Purchases and services of a Bande. The price can be entered later (bought on credit): a charge
+without `prixTotal` is listed as "Prix à saisir" and doesn't count in the totals until it has one.
+
+A charge:
+
+```json
+{
+  "id": 3, "date": "2026-11-03", "vendeur": "Alf Sahel", "typeProduit": "Aliment",
+  "produit": "Aliment croissance", "quantite": 2.5, "unite": "tonnes", "prixTotal": null,
+  "description": "Prix convenu 4 200 DH la tonne, payé fin du mois", "creeLe": "…", "modifieLe": null
+}
+```
+
+Validation (400 `VALIDATION`, per field): `date` required; `vendeur` (1–80), `typeProduit` (1–60),
+`produit` (1–100) required; `quantite` optional, > 0 (3 decimals); `unite` optional (≤ 20, needs a
+quantity); `prixTotal` optional, ≥ 0 DH (2 decimals); `description` optional (≤ 500).
+Numbers may be sent as `"7 500,50"`. `vendeur`, `typeProduit`, `produit` and `unite` are saved with the
+spelling already on file when they match ignoring case ("alf sahel" → "Alf Sahel").
+
+Every response below returns the same shape:
+
+```json
+{
+  "data": {
+    "bande": { "…": "Bande object" },
+    "charges": [ "…newest first…" ],
+    "resume": {
+      "total": 18500, "nombre": 3, "sansPrix": 0, "coutParPoussin": 3.7,
+      "parType": [ { "type": "Aliment", "nombre": 2, "total": 18000, "sansPrix": 0 } ]
+    }
+  }
+}
+```
+
+| Endpoint | Body | Response | Historique |
+| --- | --- | --- | --- |
+| `GET /bandes/:bandeId/charges` | — | 200 | no |
+| `POST /bandes/:bandeId/charges` | charge fields | 201 | "Charge ajoutée : Aliment démarrage (Aliment) chez Alf Sahel, le 01/11/2026 — 50 sacs — 7 500,00 DH" |
+| `PUT /bandes/:bandeId/charges/:id` | charge fields | 200 | "Charge modifiée (…) : prix à saisir → 10 500,00 DH" (only if something changed) |
+| `DELETE /bandes/:bandeId/charges/:id` | `{ "motDePasse": "…" }` | 200 | "Charge supprimée : …" |
+
+### GET /charges/suggestions?vendeur=…
+
+Values typed in earlier charges, **all Bandes**, most used first:
+
+```json
+{
+  "data": {
+    "vendeurs": ["Alf Sahel", "Afriquia Gaz"],
+    "types": ["Aliment", "Gaz"],
+    "produits": [ { "produit": "Aliment démarrage", "typeProduit": "Aliment", "unite": "sacs" } ],
+    "unites": ["sacs", "bouteilles"]
+  }
+}
+```
+
+With `vendeur`: `types` lists that seller's types first, `produits` only that seller's products.
