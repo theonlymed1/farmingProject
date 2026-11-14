@@ -288,3 +288,66 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .resume-troupeau { margin-bottom: var(--e2); }
 .grille-declarations { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 1000px) { .grille-declarations { grid-template-columns: 1fr; } }
+
+/* --- Employés ------------------------------------------------------------------------ */
+.champ-recherche {
+  font: inherit;
+  padding: var(--e2) var(--e3);
+  border: 1px solid var(--couleur-bordure);
+  border-radius: var(--rayon);
+  min-width: 300px;
+}
+.tableau-employes th[scope="row"] { font-weight: 600; background: none; }
+.cellule-menu { width: 1%; text-align: right; }
+.bouton-menu {
+  font: inherit;
+  font-size: 1.3rem;
+  line-height: 1;
+  padding: 2px var(--e2) 6px;
+  border: 1px solid var(--couleur-bordure);
+  border-radius: var(--rayon);
+  background: var(--blanc);
+  cursor: pointer;
+}
+.bouton-menu:hover, .bouton-menu[aria-expanded="true"] { background: var(--vert-100); border-color: var(--vert-bord); }
+.menu-actions {
+  position: absolute;
+  z-index: 50;
+  list-style: none;
+  margin: 0;
+  padding: var(--e1) 0;
+  min-width: 240px;
+  background: var(--blanc);
+  border: 1px solid var(--couleur-bordure);
+  border-radius: var(--rayon);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+.menu-actions button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--e2) var(--e3);
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.menu-actions button:hover, .menu-actions button:focus { background: var(--vert-100); outline: none; }
+.menu-actions .action-danger { color: var(--rouge-600); }
+.menu-actions .action-danger:hover, .menu-actions .action-danger:focus { background: var(--rouge-100); }
+.solde-negatif { color: var(--rouge-600); font-weight: 600; }
+.montant-final { font-size: 1.2rem; font-weight: 700; }
+.dialogue h3 { margin-top: var(--e4); }
+.liste-repos { list-style: none; padding: 0; margin: 0; max-height: 220px; overflow-y: auto; }
+.liste-repos li { display: flex; justify-content: space-between; align-items: center; padding: var(--e1) 0; border-bottom: 1px solid var(--couleur-bordure); }
+#apercu-compte { margin: var(--e2) 0 var(--e3); padding: var(--e3); background: var(--gris-100); border-radius: var(--rayon); }
+
+/* Receipt (dialog and paper) */
+.recu-entete { display: flex; justify-content: space-between; gap: var(--e3); border-bottom: 2px solid var(--gris-900); padding-bottom: var(--e2); margin-bottom: var(--e3); }
+.recu-phrase { margin-top: var(--e3); }
+.recu-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: var(--e5); margin-top: var(--e5); }
+.recu-signatures div { border-top: 1px solid var(--gris-700); padding-top: var(--e2); min-height: 80px; color: var(--couleur-texte-discret); }
+.tableau-employes th, .tableau-employes td { padding: var(--e2); white-space: nowrap; }
+.tableau-employes thead th { white-space: normal; }
+.champ-recherche { min-width: 220px; }
+.recu .liste-cles + .liste-cles { margin-top: var(--e3); padding-top: var(--e3); border-top: 1px solid var(--couleur-bordure); }

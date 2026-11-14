@@ -23,7 +23,7 @@ const FONCTIONNALITES = [
   ['Mortalité et malades', 'Déclarer des malades, des guérisons et des morts', 'volaille'],
   ['Croissance et pesées', 'Guide du fournisseur et poids observés', 'croissance'],
   ['Charges', 'Achats et services : aliment, gaz, vaccins…', 'charges'],
-  ['Employés', 'Avances, jours travaillés, règlement', null],
+  ['Employés', 'Avances, jours de repos, départ et reçu', 'employes'],
   ['Historique', 'Toutes les opérations de la bande', null],
 ];
 
@@ -111,6 +111,14 @@ function afficher(b) {
       <div id="resume-charges">Chargement…</div>
     </section>
 
+    <section class="carte" aria-labelledby="titre-employes">
+      <div class="titre-section">
+        <h2 id="titre-employes">Employés</h2>
+        <a class="no-print" href="/pages/employes.html?bande=${b.id}">Employés →</a>
+      </div>
+      <div id="resume-employes">Chargement…</div>
+    </section>
+
     <section class="carte no-print" aria-labelledby="titre-fonctions">
       <h2 id="titre-fonctions">Gestion de la bande</h2>
       <div class="grille-fonctions">
@@ -125,6 +133,21 @@ function afficher(b) {
     </section>`;
 
   document.getElementById('bouton-imprimer-fiche').addEventListener('click', () => window.print());
+
+  api.get(`/bandes/${b.id}/employes`)
+    .then(({ employes, resume }) => {
+      const actifs = employes.filter((e) => e.actif);
+      document.getElementById('resume-employes').innerHTML = !employes.length
+        ? '<p class="texte-discret">Aucun employé pour cette bande.</p>'
+        : `<dl class="liste-cles">
+            <dt>Employés actuels</dt><dd>${formaterNombre(resume.nombreActifs)}${actifs.length ? ` — ${actifs.map((e) => echapper(e.nom)).join(', ')}` : ''}</dd>
+            <dt>Anciens employés</dt><dd>${formaterNombre(resume.nombrePartis)}</dd>
+            <dt>Avances versées</dt><dd>${formaterMontant(resume.totalAvances)}</dd>
+            <dt>Reste à payer aux employés actuels</dt><dd>${formaterMontant(resume.soldeActifs)}</dd>
+            <dt>Coût pour la bande</dt><dd><strong>${formaterMontant(resume.cout)}</strong></dd>
+          </dl>`;
+    })
+    .catch((e) => afficherErreur(document.getElementById('resume-employes'), e));
 
   api.get(`/bandes/${b.id}/charges`)
     .then((etat) => {

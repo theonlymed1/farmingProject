@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Employés — Plateforme avicole</title>
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/print.css" media="print">
+  <script type="module" src="/js/pages/employes.js"></script>
+</head>
+<!-- /pages/employes.html?bande=12 — workers of the Bande, rest days, departure and receipt. -->
+<body data-page="employes">
+  <main id="contenu" class="contenu">
+    <div class="titre-page">
+      <div>
+        <h1>Employés</h1>
+        <p class="sous-titre" id="sous-titre"></p>
+      </div>
+      <div class="actions-page no-print">
+        <button type="button" class="bouton bouton-secondaire" id="bouton-imprimer-page">Imprimer</button>
+        <button type="button" class="bouton" id="bouton-ajouter" disabled>+ Ajouter un employé</button>
+      </div>
+    </div>
+    <div id="message" aria-live="polite"></div>
+    <div id="contenu-employes">Chargement…</div>
+  </main>
+  <!-- Filled only while a receipt is being printed (see imprimerRecu in employes.js). -->
+  <div id="zone-recu" class="zone-recu" hidden></div>
+</body>
+</html>

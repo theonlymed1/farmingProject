@@ -1,6 +1,7 @@
 // Fake API used when api.js runs in 'mock' mode (?mode=mock).
 // One entry per endpoint from docs/api.md: copy the example response from the contract.
 import { ErreurApi } from '../erreurs.js';
+import { calculerCompte as compteMock } from '../employes-calcul.js';
 
 // Simulated login state, kept for this browser tab.
 const etat = {
@@ -156,8 +157,9 @@ function etatCharges(id) {
     resume: {
       total, nombre: charges.length, sansPrix: charges.length - avecPrix.length,
       prixPoussins: bande.prixPoussins ?? null,
-      coutTotal: total + (bande.prixPoussins ?? 0),
-      coutParPoussin: Math.round(((total + (bande.prixPoussins ?? 0)) / bande.nombrePoussins) * 100) / 100,
+      employes: resumeEmployesMock(id),
+      coutTotal: total + (bande.prixPoussins ?? 0) + resumeEmployesMock(id).cout,
+      coutParPoussin: Math.round(((total + (bande.prixPoussins ?? 0) + resumeEmployesMock(id).cout) / bande.nombrePoussins) * 100) / 100,
       parType: [...parType.values()].sort((x, y) => y.total - x.total),
     },
   };
@@ -182,7 +184,117 @@ function distinctsMock(valeurs) {
   return [...vus.values()];
 }
 
+// --- Simulated workers (same rules as server/modules/employes) -------------------------------
+const lireEmployesMock = () => JSON.parse(sessionStorage.getItem('mock-employes') ?? '[]');
+const ecrireEmployesMock = (l) => sessionStorage.setItem('mock-employes', JSON.stringify(l));
+const aujourdhuiMock = () => new Date().toISOString().slice(0, 10);
+function employesDe(id) {
+  return lireEmployesMock().filter((e) => e.bandeId === Number(id))
+    .map((e) => ({ ...e, actif: !e.dateDepart, compte: compteMock(e, e.joursRepos.map((j) => j.date), aujourdhuiMock()) }))
+    .sort((a, b) => Number(!a.actif) - Number(!b.actif) || a.nom.localeCompare(b.nom, 'fr'));
+}
+function resumeEmployesMock(id) {
+  const l = employesDe(id);
+  const somme = (f) => Math.round(l.reduce((t, e) => t + f(e), 0) * 100) / 100;
+  return {
+    nombreActifs: l.filter((e) => e.actif).length,
+    nombrePartis: l.filter((e) => !e.actif).length,
+    totalAvances: somme((e) => e.compte.totalAvances),
+    cout: somme((e) => e.compte.cout),
+    soldeActifs: somme((e) => (e.actif ? e.compte.solde : 0)),
+  };
+}
+const etatEmployes = (id) => ({ bande: calculer(trouverBande(id)), employes: employesDe(id), resume: resumeEmployesMock(id) });
+function validerEmployeMock(c, idIgnore, bandeId) {
+  const champs = {};
+  if (!c.nom?.trim()) champs.nom = 'Le nom complet est obligatoire.';
+  if (!Number.isInteger(c.age) || c.age < 15 || c.age > 90) champs.age = 'L’âge doit être entre 15 et 90.';
+  const cin = (c.cin ?? '').replace(/\s/g, '').toUpperCase();
+  if (!/^[A-Z]{1,2}\d{1,8}$/.test(cin)) champs.cin = 'Le CIN doit être 1 ou 2 lettres suivies de chiffres (ex. AB123456).';
+  else if (lireEmployesMock().some((e) => e.bandeId === Number(bandeId) && !e.dateDepart && e.id !== idIgnore && e.cin === cin)) {
+    champs.cin = 'Un employé actuel a déjà ce numéro de CIN.';
+  }
+  if (!c.dateDebut) champs.dateDebut = 'La date de début est obligatoire (format jj/mm/aaaa).';
+  if (c.salaireJournalier == null) champs.salaireJournalier = 'Le salaire journalier est obligatoire.';
+  if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
+  return {
+    nom: c.nom.trim().replace(/\s+/g, ' '), age: c.age, cin, dateDebut: c.dateDebut, avanceHebdo: c.avanceHebdo ?? 200, salaireJournalier: c.salaireJournalier,
+  };
+}
+function majEmployeMock(eid, f) {
+  const l = lireEmployesMock();
+  const e = l.find((x) => x.id === Number(eid));
+  if (!e) throw new ErreurApi(404, 'INTROUVABLE', 'Cet employé n’existe pas.');
+  f(e);
+  ecrireEmployesMock(l);
+}
+
 const routes = [
+  {
+    methode: 'GET',
+    motif: /^\/bandes\/(\d+)\/employes$/,
+    reponse: ({ params: [id] }) => { exigerConnexion(); return etatEmployes(id); },
+  },
+  {
+    methode: 'POST',
+    motif: /^\/bandes\/(\d+)\/employes$/,
+    reponse: ({ params: [id], corps }) => {
+      exigerConnexion();
+      const v = validerEmployeMock(corps, null, id);
+      const l = lireEmployesMock();
+      l.push({ id: (l.at(-1)?.id ?? 0) + 1, bandeId: Number(id), ...v, dateDepart: null, joursRepos: [] });
+      ecrireEmployesMock(l);
+      return etatEmployes(id);
+    },
+  },
+  {
+    methode: 'PUT',
+    motif: /^\/bandes\/(\d+)\/employes\/(\d+)$/,
+    reponse: ({ params: [id, eid], corps }) => {
+      exigerConnexion();
+      const v = validerEmployeMock(corps, Number(eid), id);
+      majEmployeMock(eid, (e) => Object.assign(e, v));
+      return etatEmployes(id);
+    },
+  },
+  {
+    methode: 'POST',
+    motif: /^\/bandes\/(\d+)\/employes\/(\d+)\/repos$/,
+    reponse: ({ params: [id, eid], corps }) => {
+      exigerConnexion();
+      majEmployeMock(eid, (e) => {
+        if (!corps.date) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', { date: 'La date est obligatoire (format jj/mm/aaaa).' });
+        if (e.joursRepos.some((j) => j.date === corps.date)) {
+          throw new ErreurApi(409, 'CONFLIT', 'Un jour de repos est déjà déclaré à cette date.', { date: `Déjà déclaré le ${corps.date.split('-').reverse().join('/')}.` });
+        }
+        e.joursRepos.push({ date: corps.date, note: corps.note?.trim() || null });
+        e.joursRepos.sort((a, b) => a.date.localeCompare(b.date));
+      });
+      return etatEmployes(id);
+    },
+  },
+  {
+    methode: 'DELETE',
+    motif: /^\/bandes\/(\d+)\/employes\/(\d+)\/repos\/([\d-]+)$/,
+    reponse: ({ params: [id, eid, jour] }) => {
+      exigerConnexion();
+      majEmployeMock(eid, (e) => { e.joursRepos = e.joursRepos.filter((j) => j.date !== jour); });
+      return etatEmployes(id);
+    },
+  },
+  {
+    methode: 'POST',
+    motif: /^\/bandes\/(\d+)\/employes\/(\d+)\/depart$/,
+    reponse: ({ params: [id, eid], corps }) => {
+      exigerConnexion();
+      if (corps.motDePasse !== MOCK_MOT_DE_PASSE) {
+        throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', { motDePasse: corps.motDePasse ? 'Mot de passe incorrect.' : 'Saisissez votre mot de passe pour confirmer.' });
+      }
+      majEmployeMock(eid, (e) => { e.dateDepart = corps.dateDepart; });
+      const etatApres = etatEmployes(id);
+      return { ...etatApres, depart: etatApres.employes.find((e) => e.id === Number(eid)) };
+    },
+  },
   {
     methode: 'GET',
     motif: /^\/charges\/suggestions(\?.*)?$/,
