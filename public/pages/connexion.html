@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connexion — Plateforme avicole</title>
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <script type="module" src="/js/pages/connexion.js"></script>
+</head>
+<body class="page-connexion">
+  <main class="carte boite-connexion">
+    <h1 class="titre-appli">Plateforme avicole</h1>
+    <p class="nom-exploitation" id="nom-exploitation"></p>
+
+    <div id="message" aria-live="assertive"></div>
+
+    <!-- method="post": even if the script hasn't loaded yet, the password never ends up in the URL. -->
+    <form id="formulaire-connexion" method="post" action="/pages/connexion.html" novalidate>
+      <div class="champ">
+        <label for="identifiant">Identifiant</label>
+        <input id="identifiant" name="identifiant" autocomplete="username" required autofocus>
+      </div>
+      <div class="champ">
+        <label for="mot-de-passe">Mot de passe</label>
+        <div class="mot-de-passe-groupe">
+          <input id="mot-de-passe" name="motDePasse" type="password" autocomplete="current-password" required>
+          <button type="button" class="bouton bouton-secondaire" data-basculer="mot-de-passe">Afficher</button>
+        </div>
+      </div>
+      <button type="submit" class="bouton" id="bouton-connexion">Se connecter</button>
+    </form>
+  </main>
+</body>
+</html>

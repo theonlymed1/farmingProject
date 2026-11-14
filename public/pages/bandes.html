@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Les bandes — Plateforme avicole</title>
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/print.css" media="print">
+  <script type="module" src="/js/pages/bandes.js"></script>
+</head>
+<!-- PAGE TEMPLATE: copy this file for a new page. Change <title>, data-page and the script;
+     put the content in <main id="contenu">. layout.js adds the menu and the print header. -->
+<body data-page="bandes">
+  <main id="contenu" class="contenu">
+    <div class="titre-page">
+      <h1>Les bandes</h1>
+      <button type="button" class="bouton no-print" id="bouton-ajouter">+ Ajouter une bande</button>
+    </div>
+    <div id="message" aria-live="polite"></div>
+    <div id="liste-bandes" class="grille-bandes" aria-live="polite">Chargement…</div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "plateforme-avicole",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Plateforme de gestion avicole — hors ligne, mono-utilisateur",
+  "type": "module",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --watch-path=server server/index.js",
+    "start": "node server/index.js",
+    "db:stop": "node scripts/arreter-db.js",
+    "mot-de-passe": "node scripts/mot-de-passe.js"
+  },
+  "dependencies": {
+    "embedded-postgres": "17.6.0-beta.15",
+    "express": "^5.1.0",
+    "pg": "^8.13.1"
+  }
+}

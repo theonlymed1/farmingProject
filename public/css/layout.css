@@ -1,0 +1,181 @@
+/* ==========================================================================
+   Page layout: top bar + side menu + content. Built by js/layout.js.
+   ========================================================================== */
+
+.mise-en-page {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "entete entete"
+    "menu   contenu";
+  min-height: 100vh;
+}
+
+/* --- Top bar -------------------------------------------------------------- */
+.entete {
+  grid-area: entete;
+  display: flex;
+  align-items: center;
+  gap: var(--e4);
+  padding: var(--e2) var(--e4);
+  background: var(--vert-900);
+  color: var(--blanc);
+}
+.entete .marque { font-weight: 700; font-size: 1.1rem; margin-right: auto; }
+.entete .marque small { font-weight: 400; opacity: 0.8; margin-left: var(--e2); }
+
+.selecteur-bande { display: flex; align-items: center; gap: var(--e2); }
+.selecteur-bande label { font-size: 0.9rem; opacity: 0.9; }
+.selecteur-bande select {
+  font: inherit;
+  padding: var(--e1) var(--e2);
+  border-radius: var(--rayon);
+  border: 1px solid transparent;
+  min-width: 200px;
+}
+
+.entete .bouton { background: var(--blanc); color: var(--vert-900); border-color: var(--blanc); }
+.entete .bouton:hover { background: var(--vert-100); }
+
+.badge-mode-mock { background: var(--ambre-600); color: var(--blanc); }
+
+.entete .bouton-entete-discret { background: transparent; color: var(--blanc); border-color: rgba(255, 255, 255, 0.6); }
+.entete .bouton-entete-discret:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* --- Side menu ------------------------------------------------------------ */
+.menu {
+  grid-area: menu;
+  background: var(--blanc);
+  border-right: 1px solid var(--couleur-bordure);
+  padding: var(--e3) 0;
+}
+.menu ul { list-style: none; margin: 0; padding: 0; }
+.menu a, .menu span {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--e2) var(--e4);
+  color: var(--couleur-texte);
+  text-decoration: none;
+  border-left: 4px solid transparent;
+}
+.menu a:hover { background: var(--vert-100); }
+.menu a[aria-current="page"] {
+  border-left-color: var(--couleur-principale);
+  background: var(--vert-100);
+  font-weight: 600;
+}
+.menu span { color: var(--gris-500); cursor: default; }
+.menu span small { font-size: 0.75rem; }
+.menu .menu-bas { margin-top: var(--e3); padding-top: var(--e3); border-top: 1px solid var(--couleur-bordure); }
+
+/* --- Login page (no menu) --------------------------------------------------- */
+.page-connexion {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--e4);
+  background: var(--vert-900);
+}
+.boite-connexion { width: 100%; max-width: 400px; }
+.boite-connexion .titre-appli { margin-bottom: var(--e1); }
+.boite-connexion .nom-exploitation { color: var(--couleur-texte-discret); margin-bottom: var(--e4); min-height: 1.5em; }
+.boite-connexion .bouton[type="submit"] { width: 100%; justify-content: center; margin-top: var(--e2); }
+
+/* --- Password field with show/hide toggle ----------------------------------- */
+.mot-de-passe-groupe { display: flex; gap: var(--e2); }
+.mot-de-passe-groupe input { flex: 1; min-width: 0; }
+.mot-de-passe-groupe .bouton { white-space: nowrap; }
+
+/* --- Password rules checklist ----------------------------------------------- */
+.regles { list-style: none; padding: 0; margin: 0 0 var(--e3); font-size: 0.9rem; }
+.regles li::before { content: "○ "; color: var(--gris-500); }
+.regles li.ok { color: var(--vert-700); }
+.regles li.ok::before { content: "✓ "; color: var(--vert-700); }
+.formulaire-etroit { max-width: 480px; }
+
+/* --- Content -------------------------------------------------------------- */
+.contenu { grid-area: contenu; padding: var(--e5); max-width: 1200px; }
+
+@media (max-width: 800px) {
+  .mise-en-page { grid-template-columns: 1fr; grid-template-areas: "entete" "menu" "contenu"; }
+  .menu { border-right: 0; border-bottom: 1px solid var(--couleur-bordure); }
+}
+
+/* --- Page title row (title + actions) ---------------------------------------- */
+.titre-page { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--e3); margin-bottom: var(--e4); }
+.titre-page h1 { margin: 0; display: flex; align-items: center; gap: var(--e3); }
+.actions-page { display: flex; flex-wrap: wrap; gap: var(--e2); }
+
+/* --- Menu: open Bande ------------------------------------------------------- */
+.menu-titre-bande {
+  margin: var(--e3) 0 var(--e1);
+  padding: var(--e2) var(--e4) 0;
+  border-top: 1px solid var(--couleur-bordure);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--couleur-texte-discret);
+}
+
+/* --- Bande status colors: green = current, red = duration passed ------------- */
+:root {
+  --vert-clair: #e3f4e5;
+  --vert-bord: #7cc488;
+  --rouge-clair: #fbe4e2;
+  --rouge-bord: #e59a92;
+}
+.statut-en-cours { background: var(--vert-clair); border-color: var(--vert-bord); }
+.statut-terminee { background: var(--rouge-clair); border-color: var(--rouge-bord); }
+.badge-statut-en-cours { background: var(--vert-700); color: var(--blanc); }
+.badge-statut-terminee { background: var(--rouge-600); color: var(--blanc); }
+
+/* --- Bandes list ------------------------------------------------------------ */
+.grille-bandes { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--e4); }
+.carte-bande {
+  position: relative;
+  border: 1px solid;
+  border-radius: var(--rayon);
+  padding: var(--e4);
+  box-shadow: var(--ombre);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.carte-bande:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); }
+.carte-bande:focus-within { outline: 3px solid var(--ambre-600); outline-offset: 2px; }
+.lien-carte { position: absolute; inset: 0; border-radius: var(--rayon); z-index: 1; }
+.lien-carte:focus { outline: none; }
+.carte-bande-entete { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--e2); }
+.carte-bande-entete h2 { margin: 0; }
+.carte-bande-age { font-weight: 600; margin: var(--e1) 0 var(--e3); }
+.carte-bande-actions { position: relative; z-index: 2; display: flex; justify-content: flex-end; margin-top: var(--e3); }
+.etat-vide { grid-column: 1 / -1; text-align: center; padding: var(--e5); }
+
+.bouton-lien { background: none; border: 0; padding: var(--e1) var(--e2); font: inherit; cursor: pointer; text-decoration: underline; color: var(--couleur-principale); }
+.bouton-lien-danger { color: var(--rouge-600); }
+
+/* --- Indicator tiles (Bande dashboard) ---------------------------------------- */
+.indicateurs { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--e3); margin-bottom: var(--e4); }
+.indicateur { display: flex; flex-direction: column; gap: var(--e1); padding: var(--e3) var(--e4); border: 1px solid var(--couleur-bordure); border-radius: var(--rayon); background: var(--blanc); }
+.indicateur-libelle { font-size: 0.85rem; font-weight: 600; color: var(--couleur-texte-discret); }
+.indicateur-valeur { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.indicateur-detail { font-size: 0.85rem; color: var(--couleur-texte-discret); }
+
+.grille-fonctions { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--e3); }
+.tuile-fonction { display: flex; flex-direction: column; gap: var(--e1); padding: var(--e3); border: 1px solid var(--couleur-bordure); border-radius: var(--rayon); }
+.tuile-fonction span { font-size: 0.9rem; color: var(--couleur-texte-discret); }
+.tuile-bientot { background: var(--gris-100); }
+.tuile-bientot small { color: var(--gris-500); }
+
+/* --- Dialogs (add / edit / delete) ------------------------------------------- */
+.dialogue {
+  width: min(480px, calc(100vw - 32px));
+  border: 0;
+  border-radius: var(--rayon);
+  padding: var(--e4);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.dialogue::backdrop { background: rgba(20, 30, 22, 0.55); }
+.dialogue h2 { margin-bottom: var(--e3); }
+.actions-dialogue { display: flex; justify-content: flex-end; gap: var(--e2); margin-top: var(--e4); }
