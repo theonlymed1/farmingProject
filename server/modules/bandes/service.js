@@ -6,20 +6,42 @@ import { verifierMotDePasse } from '../../lib/motDePasse.js';
 import {
   texte, entier, date, dateFr, nombreFr,
 } from '../../lib/validation.js';
+import { SQL_EFFET, verifierCoherence } from '../volaille/coherence.js';
 
 // Computed in SQL so every screen agrees:
 //  date_fin  = start + duration
 //  statut    = 'a_venir' (not started) | 'en_cours' (green) | 'terminee' (red, duration passed)
 //  age_jours = day 1 is the arrival day
+//  s.*       = health totals per sex from the declarations (phase 3)
 const SELECT_BANDE = `
-  SELECT b.id, b.nom, b.date_debut, b.duree_mois, b.nombre_poussins, b.cree_le, b.modifie_le,
-         fin.date_fin,
+  SELECT b.id, b.nom, b.date_debut, b.duree_mois, b.nombre_males, b.nombre_femelles, b.nombre_poussins,
+         b.cree_le, b.modifie_le,
+         fin.date_fin, s.morts_m, s.morts_f, s.malades_m, s.malades_f,
          CASE WHEN current_date < b.date_debut THEN 'a_venir'
               WHEN current_date > fin.date_fin  THEN 'terminee'
               ELSE 'en_cours' END AS statut,
          (current_date - b.date_debut + 1) AS age_jours
     FROM bande b
-   CROSS JOIN LATERAL (SELECT (b.date_debut + make_interval(months => b.duree_mois))::date AS date_fin) fin`;
+   CROSS JOIN LATERAL (SELECT (b.date_debut + make_interval(months => b.duree_mois))::date AS date_fin) fin
+   CROSS JOIN LATERAL (
+     SELECT COALESCE(SUM(males)    FILTER (WHERE type = 'mort'), 0) AS morts_m,
+            COALESCE(SUM(femelles) FILTER (WHERE type = 'mort'), 0) AS morts_f,
+            COALESCE(SUM(${SQL_EFFET.maladesMales}), 0)    AS malades_m,
+            COALESCE(SUM(${SQL_EFFET.maladesFemelles}), 0) AS malades_f
+       FROM mouvement_sante m WHERE m.bande_id = b.id) s`;
+
+const pourcent = (n, total) => (total > 0 ? Math.round((n / total) * 10000) / 100 : 0);
+
+function groupe(recus, morts, malades) {
+  return {
+    recus,
+    sains: recus - morts - malades,
+    malades,
+    morts,
+    vivants: recus - morts,
+    tauxMortalite: pourcent(morts, recus),
+  };
+}
 
 function versJson(r) {
   return {
@@ -28,9 +50,15 @@ function versJson(r) {
     dateDebut: r.date_debut,
     dureeMois: r.duree_mois,
     dateFin: r.date_fin,
+    nombreMales: r.nombre_males,
+    nombreFemelles: r.nombre_femelles,
     nombrePoussins: r.nombre_poussins,
-    // Until phase "Mortalité et malades", the flock is the initial number of chicks.
-    effectifActuel: r.nombre_poussins,
+    effectifActuel: r.nombre_poussins - r.morts_m - r.morts_f,
+    sante: {
+      males: groupe(r.nombre_males, r.morts_m, r.malades_m),
+      femelles: groupe(r.nombre_femelles, r.morts_f, r.malades_f),
+      total: groupe(r.nombre_poussins, r.morts_m + r.morts_f, r.malades_m + r.malades_f),
+    },
     statut: r.statut,
     ageJours: r.age_jours,
     creeLe: r.cree_le,
@@ -40,7 +68,7 @@ function versJson(r) {
 
 /** Values stored in the history (what the farmer typed, not the computed fields). */
 const instantane = (b) => ({
-  nom: b.nom, dateDebut: b.dateDebut, dureeMois: b.dureeMois, nombrePoussins: b.nombrePoussins,
+  nom: b.nom, dateDebut: b.dateDebut, dureeMois: b.dureeMois, nombreMales: b.nombreMales, nombreFemelles: b.nombreFemelles,
 });
 
 export function validerBande(corps) {
@@ -48,16 +76,21 @@ export function validerBande(corps) {
   const [nom, eNom] = texte(corps?.nom, { nom: 'Le nom', max: 60 });
   const [dateDebut, eDate] = date(corps?.dateDebut, { nom: 'La date de début' });
   const [dureeMois, eDuree] = entier(corps?.dureeMois ?? 4, { nom: 'La durée', min: 1, max: 12 });
-  const [nombrePoussins, ePoussins] = entier(corps?.nombrePoussins, {
-    nom: 'Le nombre de poussins', min: 1, max: 1000000,
+  const [nombreMales, eMales] = entier(corps?.nombreMales ?? 0, { nom: 'Le nombre de mâles', min: 0, max: 1000000 });
+  const [nombreFemelles, eFemelles] = entier(corps?.nombreFemelles ?? 0, {
+    nom: 'Le nombre de femelles', min: 0, max: 1000000,
   });
   if (eNom) champs.nom = eNom;
   if (eDate) champs.dateDebut = eDate;
   if (eDuree) champs.dureeMois = eDuree;
-  if (ePoussins) champs.nombrePoussins = ePoussins;
+  if (eMales) champs.nombreMales = eMales;
+  if (eFemelles) champs.nombreFemelles = eFemelles;
+  if (!eMales && !eFemelles && (nombreMales + nombreFemelles < 1 || nombreMales + nombreFemelles > 1000000)) {
+    champs.nombreMales = 'Le total des poussins (mâles + femelles) doit être entre 1 et 1000000.';
+  }
   if (Object.keys(champs).length) throw erreurs.validation('Vérifiez les champs indiqués.', champs);
   return {
-    nom, dateDebut, dureeMois, nombrePoussins,
+    nom, dateDebut, dureeMois, nombreMales, nombreFemelles,
   };
 }
 
@@ -66,6 +99,11 @@ function nomDejaPris(e) {
     return erreurs.conflit('Une bande porte déjà ce nom.', { nom: 'Une bande porte déjà ce nom.' });
   }
   return e;
+}
+
+/** Reads one Bande with the given client (inside a transaction) or the pool. */
+export async function lireBandeClient(client, id) {
+  return lire(client, id);
 }
 
 async function lire(client, id) {
@@ -88,9 +126,9 @@ export async function creerBande(corps) {
   try {
     return await transaction(async (client) => {
       const { rows: [{ id }] } = await client.query(
-        `INSERT INTO bande (nom, date_debut, duree_mois, nombre_poussins)
-         VALUES ($1, $2, $3, $4) RETURNING id`,
-        [v.nom, v.dateDebut, v.dureeMois, v.nombrePoussins],
+        `INSERT INTO bande (nom, date_debut, duree_mois, nombre_males, nombre_femelles)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [v.nom, v.dateDebut, v.dureeMois, v.nombreMales, v.nombreFemelles],
       );
       const bande = await lire(client, id);
       await journaliser(client, {
@@ -98,7 +136,8 @@ export async function creerBande(corps) {
         module: 'bandes',
         action: 'creation',
         entiteId: id,
-        description: `Bande « ${v.nom} » créée : ${nombreFr(v.nombrePoussins)} poussins, `
+        description: `Bande « ${v.nom} » créée : ${nombreFr(v.nombreMales + v.nombreFemelles)} poussins `
+          + `(${nombreFr(v.nombreMales)} mâles, ${nombreFr(v.nombreFemelles)} femelles), `
           + `début le ${dateFr(v.dateDebut)}, durée ${v.dureeMois} mois`,
         apres: instantane(bande),
       });
@@ -113,7 +152,8 @@ const LIBELLES = {
   nom: ['nom', (x) => `« ${x} »`],
   dateDebut: ['date de début', dateFr],
   dureeMois: ['durée', (x) => `${x} mois`],
-  nombrePoussins: ['nombre de poussins', nombreFr],
+  nombreMales: ['mâles', nombreFr],
+  nombreFemelles: ['femelles', nombreFr],
 };
 
 export async function modifierBande(id, corps) {
@@ -128,10 +168,13 @@ export async function modifierBande(id, corps) {
       if (!changements.length) return avant;
 
       await client.query(
-        `UPDATE bande SET nom = $1, date_debut = $2, duree_mois = $3, nombre_poussins = $4, modifie_le = now()
-          WHERE id = $5`,
-        [v.nom, v.dateDebut, v.dureeMois, v.nombrePoussins, id],
+        `UPDATE bande SET nom = $1, date_debut = $2, duree_mois = $3, nombre_males = $4, nombre_femelles = $5,
+                modifie_le = now()
+          WHERE id = $6`,
+        [v.nom, v.dateDebut, v.dureeMois, v.nombreMales, v.nombreFemelles, id],
       );
+      // Fewer chicks or a later start date must still fit the health declarations already made.
+      await verifierCoherence(client, id);
       const apres = await lire(client, id);
       await journaliser(client, {
         bandeId: id,

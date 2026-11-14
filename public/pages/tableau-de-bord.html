@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tableau de bord — Plateforme avicole</title>
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/print.css" media="print">
+  <script type="module" src="/js/pages/tableau-de-bord.js"></script>
+</head>
+<!-- PAGE TEMPLATE: copy this file for every new page.
+     1. Change <title>, data-page and the script name.
+     2. Put the page content inside <main id="contenu">.
+     layout.js adds the header, the menu and the print header around it. -->
+<body data-page="tableau-de-bord">
+  <main id="contenu" class="contenu">
+    <h1>Tableau de bord</h1>
+
+    <section class="carte" aria-labelledby="titre-etat">
+      <h2 id="titre-etat">État de l’application</h2>
+      <div id="etat-serveur" aria-live="polite">Chargement…</div>
+    </section>
+
+    <section class="carte no-print">
+      <h2>Prochaines étapes</h2>
+      <p class="texte-discret">Les indicateurs de la bande (nombre de poussins, mortalité, malades) apparaîtront ici en phase 3.</p>
+    </section>
+  </main>
+</body>
+</html>

@@ -179,3 +179,33 @@
 .dialogue::backdrop { background: rgba(20, 30, 22, 0.55); }
 .dialogue h2 { margin-bottom: var(--e3); }
 .actions-dialogue { display: flex; justify-content: flex-end; gap: var(--e2); margin-top: var(--e4); }
+
+/* --- Mortalité et malades ---------------------------------------------------- */
+.sous-titre { margin: var(--e1) 0 0; color: var(--couleur-texte-discret); }
+.titre-section { display: flex; justify-content: space-between; align-items: baseline; gap: var(--e3); }
+a.tuile-fonction { color: inherit; text-decoration: none; background: var(--vert-100); border-color: var(--vert-bord); }
+a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre); }
+
+.tableau-sante th[scope="row"] { font-weight: 600; }
+.tableau-sante tfoot th, .tableau-sante tfoot td { font-weight: 700; border-top: 2px solid var(--gris-700); }
+
+.grille-declarations { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--e4); margin-bottom: var(--e4); }
+.grille-declarations .carte { margin-bottom: 0; }
+.declaration { border-top-width: 6px; }
+.declaration-maladie { border-top-color: var(--ambre-600); }
+.declaration-guerison { border-top-color: var(--vert-700); }
+.declaration-mort { border-top-color: var(--rouge-600); }
+.aide-declaration { font-size: 0.9rem; color: var(--couleur-texte-discret); }
+.champs-cote { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--e3); }
+.champs-cote input { width: 100%; min-width: 0; }
+.disponibles { margin-top: calc(-1 * var(--e2)); }
+.choix { border: 0; padding: 0; margin: 0 0 var(--e3); }
+.choix legend { font-weight: 600; margin-bottom: var(--e1); padding: 0; }
+.choix label { display: flex; align-items: center; gap: var(--e2); font-weight: 400; }
+.total-poussins { margin-top: calc(-1 * var(--e2)); font-weight: 600; }
+
+.badge-maladie { background: var(--ambre-100); color: #7a4f10; }
+.badge-guerison { background: var(--vert-100); color: var(--vert-900); }
+.badge-mort { background: var(--rouge-100); color: var(--rouge-600); }
+
+.visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

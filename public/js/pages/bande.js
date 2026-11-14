@@ -5,6 +5,7 @@ import { monterLayout } from '../layout.js';
 import { api } from '../api.js';
 import { formaterDate, formaterNombre, formaterDateHeure } from '../format.js';
 import { echapper, afficherErreur, afficherSucces } from '../ui.js';
+import { tableauSante } from '../volaille-commun.js';
 import {
   STATUTS, badgeStatut, ouvrirFormulaireBande, confirmerSuppressionBande,
 } from '../bandes-commun.js';
@@ -13,12 +14,13 @@ const fiche = document.getElementById('fiche');
 const message = document.getElementById('message');
 const id = Number(new URLSearchParams(location.search).get('id'));
 
+// page = null while the feature isn't built yet.
 const FONCTIONNALITES = [
-  ['Mortalité et malades', 'Morts et malades, effectif en temps réel'],
-  ['Croissance et pesées', 'Guide du fournisseur et pesées hebdomadaires'],
-  ['Charges', 'Aliment, gaz, paille, vaccins…'],
-  ['Employés', 'Avances, jours travaillés, règlement'],
-  ['Historique', 'Toutes les opérations de la bande'],
+  ['Mortalité et malades', 'Déclarer des malades, des guérisons et des morts', 'volaille'],
+  ['Croissance et pesées', 'Guide du fournisseur et pesées hebdomadaires', null],
+  ['Charges', 'Aliment, gaz, paille, vaccins…', null],
+  ['Employés', 'Avances, jours travaillés, règlement', null],
+  ['Historique', 'Toutes les opérations de la bande', null],
 ];
 
 const valeurAge = (b) => ({ a_venir: '—', terminee: 'Terminée' }[b.statut] ?? `Jour ${formaterNombre(b.ageJours)}`);
@@ -46,6 +48,11 @@ function afficher(b) {
         <span class="indicateur-detail">sur ${formaterNombre(b.nombrePoussins)} poussins reçus</span>
       </div>
       <div class="indicateur">
+        <span class="indicateur-libelle">Malades / morts</span>
+        <span class="indicateur-valeur">${formaterNombre(b.sante.total.malades)} / ${formaterNombre(b.sante.total.morts)}</span>
+        <span class="indicateur-detail">mortalité ${b.sante.total.tauxMortalite.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %</span>
+      </div>
+      <div class="indicateur">
         <span class="indicateur-libelle">Âge</span>
         <span class="indicateur-valeur">${valeurAge(b)}</span>
         <span class="indicateur-detail">${detailAge(b)}</span>
@@ -65,19 +72,31 @@ function afficher(b) {
         <dt>Date de début</dt><dd>${formaterDate(b.dateDebut)}</dd>
         <dt>Durée</dt><dd>${b.dureeMois} mois</dd>
         <dt>Fin prévue</dt><dd>${formaterDate(b.dateFin)}</dd>
-        <dt>Nombre de poussins reçus</dt><dd>${formaterNombre(b.nombrePoussins)}</dd>
+        <dt>Poussins reçus</dt><dd>${formaterNombre(b.nombrePoussins)}
+          (${formaterNombre(b.nombreMales)} mâles, ${formaterNombre(b.nombreFemelles)} femelles)</dd>
         <dt>Créée le</dt><dd>${formaterDateHeure(b.creeLe)}</dd>
         ${b.modifieLe ? `<dt>Dernière modification</dt><dd>${formaterDateHeure(b.modifieLe)}</dd>` : ''}
       </dl>
     </section>
 
+    <section class="carte" aria-labelledby="titre-sante">
+      <div class="titre-section">
+        <h2 id="titre-sante">État du troupeau</h2>
+        <a class="no-print" href="/pages/volaille.html?bande=${b.id}">Mortalité et malades →</a>
+      </div>
+      ${tableauSante(b.sante)}
+    </section>
+
     <section class="carte no-print" aria-labelledby="titre-fonctions">
       <h2 id="titre-fonctions">Gestion de la bande</h2>
       <div class="grille-fonctions">
-        ${FONCTIONNALITES.map(([titre, detail]) => `
+        ${FONCTIONNALITES.map(([titre, detail, page]) => (page ? `
+          <a class="tuile-fonction" href="/pages/${page}.html?bande=${b.id}">
+            <strong>${titre}</strong><span>${detail}</span>
+          </a>` : `
           <div class="tuile-fonction tuile-bientot">
             <strong>${titre}</strong><span>${detail}</span><small>Bientôt disponible</small>
-          </div>`).join('')}
+          </div>`)).join('')}
       </div>
     </section>`;
 

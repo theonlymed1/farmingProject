@@ -27,7 +27,8 @@ function carte(b) {
         <dt>Début</dt><dd>${formaterDate(b.dateDebut)}</dd>
         <dt>Fin prévue</dt><dd>${formaterDate(b.dateFin)}</dd>
         <dt>Durée</dt><dd>${b.dureeMois} mois</dd>
-        <dt>Poussins</dt><dd>${formaterNombre(b.nombrePoussins)}</dd>
+        <dt>Vivants</dt><dd>${formaterNombre(b.effectifActuel)} sur ${formaterNombre(b.nombrePoussins)}</dd>
+        <dt>Malades</dt><dd>${formaterNombre(b.sante.total.malades)}</dd>
       </dl>
       <div class="carte-bande-actions no-print">
         <button type="button" class="bouton-lien bouton-lien-danger" data-supprimer="${b.id}">Supprimer</button>

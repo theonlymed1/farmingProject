@@ -7,7 +7,7 @@ import { echapper } from './ui.js';
 // Each page receives the Bande as ?id=… (bande page) or ?bande=… (feature pages).
 const MENU_BANDE = [
   { page: 'bande', libelle: 'Tableau de bord', disponible: true, param: 'id' },
-  { page: 'volaille', libelle: 'Mortalité et malades', disponible: false },
+  { page: 'volaille', libelle: 'Mortalité et malades', disponible: true },
   { page: 'croissance', libelle: 'Croissance et pesées', disponible: false },
   { page: 'charges', libelle: 'Charges', disponible: false },
   { page: 'employes', libelle: 'Employés', disponible: false },

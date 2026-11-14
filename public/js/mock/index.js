@@ -27,8 +27,41 @@ function calculer(b) {
   const aujourdhui = jourIso(new Date());
   const statut = aujourdhui < b.dateDebut ? 'a_venir' : aujourdhui > dateFin ? 'terminee' : 'en_cours';
   const ageJours = Math.round((Date.parse(aujourdhui) - Date.parse(b.dateDebut)) / 864e5) + 1;
-  return { ...b, dateFin, statut, ageJours, effectifActuel: b.nombrePoussins };
+  const mv = lireMouvements().filter((m) => m.bandeId === b.id);
+  const somme = (f) => mv.reduce((t, m) => t + f(m), 0);
+  const groupe = (recus, cle) => {
+    const morts = somme((m) => (m.type === 'mort' ? m[cle] : 0));
+    const malades = somme((m) => ({ maladie: m[cle], guerison: -m[cle] }[m.type]
+      ?? (m.provenance === 'malades' ? -m[cle] : 0)));
+    return {
+      recus, sains: recus - morts - malades, malades, morts, vivants: recus - morts,
+      tauxMortalite: recus ? Math.round((morts / recus) * 10000) / 100 : 0,
+    };
+  };
+  const males = groupe(b.nombreMales, 'males');
+  const femelles = groupe(b.nombreFemelles, 'femelles');
+  const nombrePoussins = b.nombreMales + b.nombreFemelles;
+  const tot = {
+    recus: nombrePoussins,
+    sains: males.sains + femelles.sains,
+    malades: males.malades + femelles.malades,
+    morts: males.morts + femelles.morts,
+    vivants: males.vivants + femelles.vivants,
+    tauxMortalite: nombrePoussins ? Math.round(((males.morts + femelles.morts) / nombrePoussins) * 10000) / 100 : 0,
+  };
+  return {
+    ...b, nombrePoussins, dateFin, statut, ageJours, effectifActuel: tot.vivants, sante: { males, femelles, total: tot },
+  };
 }
+
+// --- Simulated health declarations ------------------------------------------------
+const lireMouvements = () => JSON.parse(sessionStorage.getItem('mock-mouvements') ?? '[]');
+const ecrireMouvements = (l) => sessionStorage.setItem('mock-mouvements', JSON.stringify(l));
+const etatVolaille = (id) => ({
+  bande: calculer(trouverBande(id)),
+  mouvements: lireMouvements().filter((m) => m.bandeId === Number(id))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id),
+});
 
 function validerBandeMock(c, idIgnore) {
   const champs = {};
@@ -38,9 +71,11 @@ function validerBandeMock(c, idIgnore) {
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(c.dateDebut ?? '')) champs.dateDebut = 'La date de début est obligatoire (format jj/mm/aaaa).';
   if (!Number.isInteger(c.dureeMois) || c.dureeMois < 1 || c.dureeMois > 12) champs.dureeMois = 'La durée doit être entre 1 et 12.';
-  if (!Number.isInteger(c.nombrePoussins) || c.nombrePoussins < 1) champs.nombrePoussins = 'Le nombre de poussins doit être entre 1 et 1000000.';
+  if ((c.nombreMales ?? 0) + (c.nombreFemelles ?? 0) < 1) champs.nombreMales = 'Le total des poussins (mâles + femelles) doit être entre 1 et 1000000.';
   if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
-  return { nom: c.nom.trim(), dateDebut: c.dateDebut, dureeMois: c.dureeMois, nombrePoussins: c.nombrePoussins };
+  return {
+    nom: c.nom.trim(), dateDebut: c.dateDebut, dureeMois: c.dureeMois, nombreMales: c.nombreMales ?? 0, nombreFemelles: c.nombreFemelles ?? 0,
+  };
 }
 
 function trouverBande(id) {
@@ -50,6 +85,49 @@ function trouverBande(id) {
 }
 
 const routes = [
+  {
+    methode: 'GET',
+    motif: /^\/bandes\/(\d+)\/volaille$/,
+    reponse: ({ params: [id] }) => { exigerConnexion(); return etatVolaille(id); },
+  },
+  {
+    methode: 'POST',
+    motif: /^\/bandes\/(\d+)\/volaille$/,
+    reponse: ({ params: [id], corps }) => {
+      exigerConnexion();
+      const champs = {};
+      const males = corps.males || 0;
+      const femelles = corps.femelles || 0;
+      if (males + femelles === 0) champs.males = 'Indiquez au moins un oiseau (mâle ou femelle).';
+      if (!corps.date) champs.date = 'La date est obligatoire (format jj/mm/aaaa).';
+      if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
+      // Simplified check on today's numbers (the real server checks date by date).
+      const { sante } = calculer(trouverBande(id));
+      const source = corps.type === 'guerison' ? 'malades' : corps.type === 'mort' ? corps.provenance : 'sains';
+      for (const [cle, sexe, mot] of [['males', 'males', 'mâles'], ['femelles', 'femelles', 'femelles']]) {
+        const manque = (corps[cle] || 0) - sante[sexe][source];
+        if (manque > 0) {
+          throw new ErreurApi(409, 'CONFLIT', `Pas assez de ${mot} ${source === 'sains' ? 'en bonne santé' : 'malades'} au ${corps.date.split('-').reverse().join('/')} : il en manquerait ${manque}.`);
+        }
+      }
+      const l = lireMouvements();
+      l.push({
+        id: (l.at(-1)?.id ?? 0) + 1, bandeId: Number(id), type: corps.type, provenance: corps.type === 'mort' ? corps.provenance : null,
+        date: corps.date, males, femelles, total: males + femelles, note: corps.note?.trim() || null, creeLe: new Date().toISOString(),
+      });
+      ecrireMouvements(l);
+      return etatVolaille(id);
+    },
+  },
+  {
+    methode: 'DELETE',
+    motif: /^\/bandes\/(\d+)\/volaille\/(\d+)$/,
+    reponse: ({ params: [id, mid] }) => {
+      exigerConnexion();
+      ecrireMouvements(lireMouvements().filter((m) => !(m.id === Number(mid) && m.bandeId === Number(id))));
+      return null;
+    },
+  },
   {
     methode: 'GET',
     motif: /^\/bandes$/,

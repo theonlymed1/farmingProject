@@ -153,8 +153,15 @@ A Bande object (every endpoint below returns this shape):
   "dateDebut": "2026-11-14",
   "dureeMois": 4,
   "dateFin": "2027-03-14",
+  "nombreMales": 2500,
+  "nombreFemelles": 2500,
   "nombrePoussins": 5000,
-  "effectifActuel": 5000,
+  "effectifActuel": 4995,
+  "sante": {
+    "males":    { "recus": 2500, "sains": 2480, "malades": 17, "morts": 3, "vivants": 2497, "tauxMortalite": 0.12 },
+    "femelles": { "recus": 2500, "sains": 2488, "malades": 10, "morts": 2, "vivants": 2498, "tauxMortalite": 0.08 },
+    "total":    { "recus": 5000, "sains": 4968, "malades": 27, "morts": 5, "vivants": 4995, "tauxMortalite": 0.1 }
+  },
   "statut": "en_cours",
   "ageJours": 1,
   "creeLe": "2026-11-14T15:48:00.000Z",
@@ -167,12 +174,15 @@ A Bande object (every endpoint below returns this shape):
 | `dateFin` | `dateDebut` + `dureeMois` (31/01 + 1 month = 28/02) |
 | `statut` | `a_venir` (not started) · `en_cours` (green) · `terminee` (red: today is after `dateFin`) |
 | `ageJours` | Day 1 = `dateDebut` (negative before it starts) |
-| `effectifActuel` | = `nombrePoussins` until the "Mortalité et malades" phase |
+| `nombrePoussins` | `nombreMales` + `nombreFemelles` (computed, phase 3) |
+| `effectifActuel` | Birds alive = received − dead (phase 3) |
+| `sante` | Per sex and total: received, healthy, sick, dead, alive, mortality % (phase 3) |
 
 Validation (400 `VALIDATION`, `details` per field):
 `nom` 1–60 characters, unique (case and spaces ignored → 409 `CONFLIT` on `nom`) ·
 `dateDebut` real date `YYYY-MM-DD`, 2000–2100 · `dureeMois` integer 1–12, default 4 ·
-`nombrePoussins` integer 1–1 000 000.
+`nombreMales`, `nombreFemelles` integers ≥ 0, total 1–1 000 000 (phase 3; before: `nombrePoussins`).
+Editing a Bande is refused (409 `CONFLIT`) if the new numbers or start date no longer fit its health declarations.
 
 ### GET /bandes
 
@@ -180,7 +190,7 @@ All Bandes, newest start date first. Response 200: `{ "data": [ Bande, … ] }`.
 
 ### POST /bandes
 
-Body: `{ "nom": "…", "dateDebut": "2026-11-14", "dureeMois": 4, "nombrePoussins": 5000 }`.
+Body: `{ "nom": "…", "dateDebut": "2026-11-14", "dureeMois": 4, "nombreMales": 2500, "nombreFemelles": 2500 }`.
 Response 201: `{ "data": Bande }`.
 Historique: yes — "Bande « … » créée : 5 000 poussins, début le 14/11/2026, durée 4 mois".
 
@@ -200,3 +210,53 @@ Response `204`. Deletes the Bande **and everything recorded in it** (later table
 `ON DELETE CASCADE`). History lines of the Bande are kept, with `bande_id` cleared.
 Errors: 400 `VALIDATION` on `motDePasse` (empty or incorrect), 404 `INTROUVABLE`.
 Historique: yes — "Bande « … » supprimée (début le …, … poussins)".
+
+---
+
+## Phase 3 — Mortalité et malades
+
+Each declaration moves birds between groups, separately for males and females:
+
+| `type` | Effect |
+| --- | --- |
+| `maladie` | healthy → sick |
+| `guerison` | sick → healthy |
+| `mort` | healthy (`provenance: "sains"`) or sick (`provenance: "malades"`) → dead |
+
+The server refuses (409 `CONFLIT`) any declaration, cancellation or Bande edit that would leave,
+**on any date**, fewer than 0 healthy or sick males or females. Example message:
+"Pas assez de mâles malades au 14/11/2026 : il en manquerait 10."
+
+### GET /bandes/:bandeId/volaille
+
+Response 200:
+
+```json
+{
+  "data": {
+    "bande": { "…": "Bande object, with sante" },
+    "mouvements": [
+      { "id": 4, "type": "mort", "provenance": "malades", "date": "2026-11-14",
+        "males": 3, "femelles": 2, "total": 5, "note": null, "creeLe": "…" }
+    ]
+  }
+}
+```
+
+Declarations newest first. Historique: no.
+
+### POST /bandes/:bandeId/volaille
+
+Body: `{ "type": "mort", "provenance": "sains", "date": "2026-11-14", "males": 3, "femelles": 0, "note": "coup de chaleur" }`
+(`provenance` only for `mort`; `note` optional, 200 characters max).
+
+Response 201: same shape as GET (updated Bande + declarations).
+Errors: 400 `VALIDATION` on `type`, `date` (before the Bande's start or in the future),
+`males` / `femelles` (integers ≥ 0, at least one bird), `provenance`, `note`; 409 `CONFLIT` (not enough birds).
+Historique: yes — "Déclaration de morts : 3 mâles, qui étaient en bonne santé, le 14/11/2026 (coup de chaleur)".
+
+### DELETE /bandes/:bandeId/volaille/:id
+
+Cancels a declaration made by mistake. Response `204`.
+409 `CONFLIT` if later declarations depend on it (e.g. cancelling a "malades" declaration whose birds were later declared cured).
+Historique: yes — "Déclaration de morts annulée : …".

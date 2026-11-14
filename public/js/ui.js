@@ -55,6 +55,33 @@ export function brancherBasculesMotDePasse(racine = document) {
   });
 }
 
+/**
+ * Yes/no question in a dialog (instead of the browser's confirm()).
+ * Resolves true if the user clicks the confirm button.
+ */
+export function confirmer({ titre, message, bouton = 'Confirmer', danger = false }) {
+  const dialogue = document.createElement('dialog');
+  dialogue.className = 'dialogue';
+  dialogue.innerHTML = `
+    <form method="dialog">
+      <h2>${echapper(titre)}</h2>
+      <p>${echapper(message)}</p>
+      <div class="actions-dialogue">
+        <button type="submit" value="non" class="bouton bouton-secondaire">Annuler</button>
+        <button type="submit" value="oui" class="bouton${danger ? ' bouton-danger' : ''}">${echapper(bouton)}</button>
+      </div>
+    </form>`;
+  document.body.append(dialogue);
+  return new Promise((resoudre) => {
+    dialogue.addEventListener('close', () => {
+      resoudre(dialogue.returnValue === 'oui');
+      dialogue.remove();
+    });
+    dialogue.showModal();
+    dialogue.querySelector('[value="non"]').focus();
+  });
+}
+
 /** Shows a short green confirmation that disappears after a few seconds. */
 export function afficherSucces(conteneur, message, dureeMs = 4000) {
   conteneur.innerHTML = `<div class="alerte alerte-succes" role="status">${echapper(message)}</div>`;

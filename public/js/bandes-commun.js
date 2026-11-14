@@ -53,7 +53,7 @@ function creerDialogue(html) {
  */
 export function ouvrirFormulaireBande(bande = null) {
   const valeurs = bande ?? {
-    nom: '', dateDebut: aujourdhui(), dureeMois: 4, nombrePoussins: '',
+    nom: '', dateDebut: aujourdhui(), dureeMois: 4, nombreMales: '', nombreFemelles: '',
   };
   const dialogue = creerDialogue(`
     <form method="dialog" novalidate>
@@ -72,10 +72,17 @@ export function ouvrirFormulaireBande(bande = null) {
         <input id="dureeMois" type="number" min="1" max="12" step="1" required value="${echapper(valeurs.dureeMois)}">
         <span class="aide" id="fin-prevue"></span>
       </div>
-      <div class="champ">
-        <label for="nombrePoussins">Nombre de poussins</label>
-        <input id="nombrePoussins" type="number" min="1" max="1000000" step="1" required value="${echapper(valeurs.nombrePoussins)}">
+      <div class="champs-cote">
+        <div class="champ">
+          <label for="nombreMales">Poussins mâles</label>
+          <input id="nombreMales" type="number" min="0" max="1000000" step="1" inputmode="numeric" value="${echapper(valeurs.nombreMales)}">
+        </div>
+        <div class="champ">
+          <label for="nombreFemelles">Poussins femelles</label>
+          <input id="nombreFemelles" type="number" min="0" max="1000000" step="1" inputmode="numeric" value="${echapper(valeurs.nombreFemelles)}">
+        </div>
       </div>
+      <p class="aide total-poussins" id="total-poussins"></p>
       <div class="actions-dialogue">
         <button type="button" class="bouton bouton-secondaire" data-fermer>Annuler</button>
         <button type="submit" class="bouton">${bande ? 'Enregistrer' : 'Confirmer'}</button>
@@ -97,6 +104,15 @@ export function ouvrirFormulaireBande(bande = null) {
   form.dureeMois.addEventListener('input', majFin);
   majFin();
 
+  const totalPoussins = dialogue.querySelector('#total-poussins');
+  const majTotal = () => {
+    const total = (Number(form.nombreMales.value) || 0) + (Number(form.nombreFemelles.value) || 0);
+    totalPoussins.textContent = `Total : ${formaterNombre(total)} poussins`;
+  };
+  form.nombreMales.addEventListener('input', majTotal);
+  form.nombreFemelles.addEventListener('input', majTotal);
+  majTotal();
+
   return new Promise((resoudre) => {
     let resultat = null;
     dialogue.addEventListener('close', () => resoudre(resultat));
@@ -111,7 +127,8 @@ export function ouvrirFormulaireBande(bande = null) {
         nom: form.nom.value,
         dateDebut: form.dateDebut.value,
         dureeMois: form.dureeMois.value === '' ? null : Number(form.dureeMois.value),
-        nombrePoussins: form.nombrePoussins.value === '' ? null : Number(form.nombrePoussins.value),
+        nombreMales: form.nombreMales.value === '' ? 0 : Number(form.nombreMales.value),
+        nombreFemelles: form.nombreFemelles.value === '' ? 0 : Number(form.nombreFemelles.value),
       };
       try {
         resultat = bande ? await api.put(`/bandes/${bande.id}`, corps) : await api.post('/bandes', corps);

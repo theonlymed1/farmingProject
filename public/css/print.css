@@ -38,6 +38,7 @@ h2 { font-size: 13pt; }
 .tableau th, .tableau td { padding: 2mm 3mm; border-bottom: 1px solid #999; }
 .tableau th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .tableau tr { break-inside: avoid; }
+.tableau tbody tr:hover { background: none; }
 .tableau thead { display: table-header-group; } /* repeat headers on each page */
 
 a { color: #000; text-decoration: none; }
