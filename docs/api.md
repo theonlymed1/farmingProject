@@ -153,15 +153,14 @@ A Bande object (every endpoint below returns this shape):
   "dateDebut": "2026-11-14",
   "dureeMois": 4,
   "dateFin": "2027-03-14",
-  "nombreMales": 2500,
-  "nombreFemelles": 2500,
   "nombrePoussins": 5000,
   "prixPoussins": 32500.5,
   "prixParPoussin": 6.5,
   "effectifActuel": 4995,
   "sante": {
-    "males":    { "recus": 2500, "sains": 2480, "malades": 17, "morts": 3, "vivants": 2497, "tauxMortalite": 0.12 },
-    "femelles": { "recus": 2500, "sains": 2488, "malades": 10, "morts": 2, "vivants": 2498, "tauxMortalite": 0.08 },
+    "males":    { "sains": 2480, "malades": 17, "morts": 3, "vivants": 2497 },
+    "femelles": { "sains": 2488, "malades": 10, "morts": 2, "vivants": 2498 },
+    "nonSexes": { "sains": 0, "malades": 0, "morts": 0, "vivants": 0 },
     "total":    { "recus": 5000, "sains": 4968, "malades": 27, "morts": 5, "vivants": 4995, "tauxMortalite": 0.1 }
   },
   "statut": "en_cours",
@@ -176,16 +175,16 @@ A Bande object (every endpoint below returns this shape):
 | `dateFin` | `dateDebut` + `dureeMois` (31/01 + 1 month = 28/02) |
 | `statut` | `a_venir` (not started) · `en_cours` (green) · `terminee` (red: today is after `dateFin`) |
 | `ageJours` | Day 1 = `dateDebut` (negative before it starts) |
-| `nombrePoussins` | `nombreMales` + `nombreFemelles` (computed, phase 3) |
+| `nombrePoussins` | Chicks received. Their sex isn't known at the start (migration 009) |
 | `prixPoussins` | Total paid for the chicks, DH (migration 008). `null` for Bandes created before it was asked |
 | `prixParPoussin` | `prixPoussins` ÷ `nombrePoussins`, or `null` |
 | `effectifActuel` | Birds alive = received − dead (phase 3) |
-| `sante` | Per sex and total: received, healthy, sick, dead, alive, mortality % (phase 3) |
+| `sante` | Healthy, sick, dead, alive for males, females and non-sexed birds; total with received and mortality % |
 
 Validation (400 `VALIDATION`, `details` per field):
 `nom` 1–60 characters, unique (case and spaces ignored → 409 `CONFLIT` on `nom`) ·
 `dateDebut` real date `YYYY-MM-DD`, 2000–2100 · `dureeMois` integer 1–12, default 4 ·
-`nombreMales`, `nombreFemelles` integers ≥ 0, total 1–1 000 000 (phase 3; before: `nombrePoussins`) ·
+`nombrePoussins` integer 1–1 000 000 ·
 `prixPoussins` required, ≥ 0 DH, 2 decimals, may be sent as `"32 500,50"`.
 Editing a Bande is refused (409 `CONFLIT`) if the new numbers or start date no longer fit its health declarations.
 
@@ -195,7 +194,7 @@ All Bandes, newest start date first. Response 200: `{ "data": [ Bande, … ] }`.
 
 ### POST /bandes
 
-Body: `{ "nom": "…", "dateDebut": "2026-11-14", "dureeMois": 4, "nombreMales": 2500, "nombreFemelles": 2500, "prixPoussins": 32500.5 }`.
+Body: `{ "nom": "…", "dateDebut": "2026-11-14", "dureeMois": 4, "nombrePoussins": 5000, "prixPoussins": 32500.5 }`.
 Response 201: `{ "data": Bande }`.
 Historique: yes — "Bande « … » créée : 5 000 poussins, début le 14/11/2026, durée 4 mois".
 
@@ -220,16 +219,21 @@ Historique: yes — "Bande « … » supprimée (début le …, … poussins)".
 
 ## Phase 3 — Mortalité et malades
 
-Each declaration moves birds between groups, separately for males and females:
+Every chick starts **non-sexed and healthy**. Each declaration moves birds between groups, with three
+counts: `males`, `femelles`, `nonSexes` (migration 009):
 
 | `type` | Effect |
 | --- | --- |
-| `maladie` | healthy → sick |
+| `sexage` | healthy non-sexed → healthy males (`males`) and healthy females (`femelles`); `nonSexes` is always 0 |
+| `maladie` | healthy → sick (each count in its own sex group) |
 | `guerison` | sick → healthy |
 | `mort` | healthy (`provenance: "sains"`) or sick (`provenance: "malades"`) → dead |
 
+Bandes created before migration 009 with males / females got a `sexage` declaration on their start date
+("Sexes saisis à la création de la bande").
+
 The server refuses (409 `CONFLIT`) any declaration, cancellation or Bande edit that would leave,
-**on any date**, fewer than 0 healthy or sick males or females. Example message:
+**on any date**, fewer than 0 healthy or sick males, females or non-sexed birds. Example message:
 "Pas assez de mâles malades au 14/11/2026 : il en manquerait 10."
 
 ### GET /bandes/:bandeId/volaille
@@ -242,7 +246,7 @@ Response 200:
     "bande": { "…": "Bande object, with sante" },
     "mouvements": [
       { "id": 4, "type": "mort", "provenance": "malades", "date": "2026-11-14",
-        "males": 3, "femelles": 2, "total": 5, "note": null, "creeLe": "…" }
+        "males": 3, "femelles": 2, "nonSexes": 1, "total": 6, "note": null, "creeLe": "…" }
     ]
   }
 }
@@ -252,13 +256,16 @@ Declarations newest first. Historique: no.
 
 ### POST /bandes/:bandeId/volaille
 
-Body: `{ "type": "mort", "provenance": "sains", "date": "2026-11-14", "males": 3, "femelles": 0, "note": "coup de chaleur" }`
+Body: `{ "type": "mort", "provenance": "sains", "date": "2026-11-14", "males": 3, "femelles": 0, "nonSexes": 2, "note": "coup de chaleur" }`
+or `{ "type": "sexage", "date": "2026-11-20", "males": 80, "femelles": 90 }`
 (`provenance` only for `mort`; `note` optional, 200 characters max).
 
 Response 201: same shape as GET (updated Bande + declarations).
 Errors: 400 `VALIDATION` on `type`, `date` (before the Bande's start or in the future),
-`males` / `femelles` (integers ≥ 0, at least one bird), `provenance`, `note`; 409 `CONFLIT` (not enough birds).
-Historique: yes — "Déclaration de morts : 3 mâles, qui étaient en bonne santé, le 14/11/2026 (coup de chaleur)".
+`males` / `femelles` / `nonSexes` (integers ≥ 0, at least one bird; a sexing needs at least one male or female),
+`provenance`, `note`; 409 `CONFLIT` (not enough birds, e.g. "Pas assez d’oiseaux non sexés en bonne santé au …").
+Historique: yes — "Déclaration de morts : 3 mâles et 2 non sexés, qui étaient en bonne santé, le 14/11/2026 (coup de chaleur)" /
+"Déclaration du sexe : 80 mâles et 90 femelles parmi les oiseaux non sexés en bonne santé, le 20/11/2026".
 
 ### DELETE /bandes/:bandeId/volaille/:id
 

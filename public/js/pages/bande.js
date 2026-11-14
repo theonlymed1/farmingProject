@@ -76,8 +76,9 @@ function afficher(b) {
         <dt>Date de début</dt><dd>${formaterDate(b.dateDebut)}</dd>
         <dt>Durée</dt><dd>${b.dureeMois} mois</dd>
         <dt>Fin prévue</dt><dd>${formaterDate(b.dateFin)}</dd>
-        <dt>Poussins reçus</dt><dd>${formaterNombre(b.nombrePoussins)}
-          (${formaterNombre(b.nombreMales)} mâles, ${formaterNombre(b.nombreFemelles)} femelles)</dd>
+        <dt>Poussins reçus</dt><dd>${formaterNombre(b.nombrePoussins)}</dd>
+        <dt>Sexe connu</dt><dd>${formaterNombre(b.sante.males.vivants)} mâles, ${formaterNombre(b.sante.femelles.vivants)} femelles,
+          ${formaterNombre(b.sante.nonSexes.vivants)} non sexés <span class="texte-discret">(oiseaux vivants)</span></dd>
         <dt>Prix des poussins</dt><dd>${b.prixPoussins == null
     ? '<span class="badge badge-sans-prix">Prix à saisir</span> <span class="texte-discret no-print">— cliquez sur « Modifier » pour l’ajouter</span>'
     : `${formaterMontant(b.prixPoussins)} <span class="texte-discret">(${formaterMontant(b.prixParPoussin)} par poussin)</span>`}</dd>

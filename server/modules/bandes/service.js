@@ -14,9 +14,8 @@ import { exigerMotDePasse } from '../auth/service.js';
 //  age_jours = day 1 is the arrival day
 //  s.*       = health totals per sex from the declarations (phase 3)
 const SELECT_BANDE = `
-  SELECT b.id, b.nom, b.date_debut, b.duree_mois, b.nombre_males, b.nombre_femelles, b.nombre_poussins, b.prix_poussins,
-         b.cree_le, b.modifie_le,
-         fin.date_fin, s.morts_m, s.morts_f, s.malades_m, s.malades_f,
+  SELECT b.id, b.nom, b.date_debut, b.duree_mois, b.nombre_poussins, b.prix_poussins,
+         b.cree_le, b.modifie_le, fin.date_fin, s.*,
          CASE WHEN current_date < b.date_debut THEN 'a_venir'
               WHEN current_date > fin.date_fin  THEN 'terminee'
               ELSE 'en_cours' END AS statut,
@@ -24,24 +23,23 @@ const SELECT_BANDE = `
     FROM bande b
    CROSS JOIN LATERAL (SELECT (b.date_debut + make_interval(months => b.duree_mois))::date AS date_fin) fin
    CROSS JOIN LATERAL (
-     SELECT COALESCE(SUM(males)    FILTER (WHERE type = 'mort'), 0) AS morts_m,
-            COALESCE(SUM(femelles) FILTER (WHERE type = 'mort'), 0) AS morts_f,
+     SELECT COALESCE(SUM(males)     FILTER (WHERE type = 'mort'), 0) AS morts_m,
+            COALESCE(SUM(femelles)  FILTER (WHERE type = 'mort'), 0) AS morts_f,
+            COALESCE(SUM(non_sexes) FILTER (WHERE type = 'mort'), 0) AS morts_n,
+            COALESCE(SUM(${SQL_EFFET.sainsMales}), 0)      AS sains_m,
             COALESCE(SUM(${SQL_EFFET.maladesMales}), 0)    AS malades_m,
-            COALESCE(SUM(${SQL_EFFET.maladesFemelles}), 0) AS malades_f
+            COALESCE(SUM(${SQL_EFFET.sainsFemelles}), 0)   AS sains_f,
+            COALESCE(SUM(${SQL_EFFET.maladesFemelles}), 0) AS malades_f,
+            COALESCE(SUM(${SQL_EFFET.sainsNonSexes}), 0)   AS delta_sains_n,
+            COALESCE(SUM(${SQL_EFFET.maladesNonSexes}), 0) AS malades_n
        FROM mouvement_sante m WHERE m.bande_id = b.id) s`;
 
 const pourcent = (n, total) => (total > 0 ? Math.round((n / total) * 10000) / 100 : 0);
 
-function groupe(recus, morts, malades) {
-  return {
-    recus,
-    sains: recus - morts - malades,
-    malades,
-    morts,
-    vivants: recus - morts,
-    tauxMortalite: pourcent(morts, recus),
-  };
-}
+/** One sex group of the flock: healthy, sick, dead, alive. */
+const groupe = (sains, malades, morts) => ({
+  sains, malades, morts, vivants: sains + malades,
+});
 
 function versJson(r) {
   return {
@@ -50,18 +48,28 @@ function versJson(r) {
     dateDebut: r.date_debut,
     dureeMois: r.duree_mois,
     dateFin: r.date_fin,
-    nombreMales: r.nombre_males,
-    nombreFemelles: r.nombre_femelles,
     nombrePoussins: r.nombre_poussins,
     // Total paid for the chicks (DH); null for Bandes created before it was asked.
     prixPoussins: r.prix_poussins,
     prixParPoussin: r.prix_poussins == null ? null : Math.round((r.prix_poussins / r.nombre_poussins) * 100) / 100,
-    effectifActuel: r.nombre_poussins - r.morts_m - r.morts_f,
-    sante: {
-      males: groupe(r.nombre_males, r.morts_m, r.malades_m),
-      femelles: groupe(r.nombre_femelles, r.morts_f, r.malades_f),
-      total: groupe(r.nombre_poussins, r.morts_m + r.morts_f, r.malades_m + r.malades_f),
-    },
+    effectifActuel: r.nombre_poussins - r.morts_m - r.morts_f - r.morts_n,
+    // Every chick starts non-sexed; "Déclarer le sexe" moves healthy non-sexed birds to males / females.
+    sante: (() => {
+      const males = groupe(r.sains_m, r.malades_m, r.morts_m);
+      const femelles = groupe(r.sains_f, r.malades_f, r.morts_f);
+      const nonSexes = groupe(r.nombre_poussins + r.delta_sains_n, r.malades_n, r.morts_n);
+      const morts = r.morts_m + r.morts_f + r.morts_n;
+      return {
+        males,
+        femelles,
+        nonSexes,
+        total: {
+          recus: r.nombre_poussins,
+          ...groupe(males.sains + femelles.sains + nonSexes.sains, males.malades + femelles.malades + nonSexes.malades, morts),
+          tauxMortalite: pourcent(morts, r.nombre_poussins),
+        },
+      };
+    })(),
     statut: r.statut,
     ageJours: r.age_jours,
     creeLe: r.cree_le,
@@ -71,7 +79,7 @@ function versJson(r) {
 
 /** Values stored in the history (what the farmer typed, not the computed fields). */
 const instantane = (b) => ({
-  nom: b.nom, dateDebut: b.dateDebut, dureeMois: b.dureeMois, nombreMales: b.nombreMales, nombreFemelles: b.nombreFemelles,
+  nom: b.nom, dateDebut: b.dateDebut, dureeMois: b.dureeMois, nombrePoussins: b.nombrePoussins,
   prixPoussins: b.prixPoussins,
 });
 
@@ -80,9 +88,8 @@ export function validerBande(corps) {
   const [nom, eNom] = texte(corps?.nom, { nom: 'Le nom', max: 60 });
   const [dateDebut, eDate] = date(corps?.dateDebut, { nom: 'La date de début' });
   const [dureeMois, eDuree] = entier(corps?.dureeMois ?? 4, { nom: 'La durée', min: 1, max: 12 });
-  const [nombreMales, eMales] = entier(corps?.nombreMales ?? 0, { nom: 'Le nombre de mâles', min: 0, max: 1000000 });
-  const [nombreFemelles, eFemelles] = entier(corps?.nombreFemelles ?? 0, {
-    nom: 'Le nombre de femelles', min: 0, max: 1000000,
+  const [nombrePoussins, ePoussins] = entier(corps?.nombrePoussins, {
+    nom: 'Le nombre de poussins', min: 1, max: 1000000,
   });
   const [prixPoussins, ePrix] = nombre(corps?.prixPoussins, {
     nom: 'Le prix total des poussins', obligatoire: true,
@@ -91,14 +98,10 @@ export function validerBande(corps) {
   if (eDate) champs.dateDebut = eDate;
   if (ePrix) champs.prixPoussins = ePrix;
   if (eDuree) champs.dureeMois = eDuree;
-  if (eMales) champs.nombreMales = eMales;
-  if (eFemelles) champs.nombreFemelles = eFemelles;
-  if (!eMales && !eFemelles && (nombreMales + nombreFemelles < 1 || nombreMales + nombreFemelles > 1000000)) {
-    champs.nombreMales = 'Le total des poussins (mâles + femelles) doit être entre 1 et 1000000.';
-  }
+  if (ePoussins) champs.nombrePoussins = ePoussins;
   if (Object.keys(champs).length) throw erreurs.validation('Vérifiez les champs indiqués.', champs);
   return {
-    nom, dateDebut, dureeMois, nombreMales, nombreFemelles, prixPoussins,
+    nom, dateDebut, dureeMois, nombrePoussins, prixPoussins,
   };
 }
 
@@ -134,9 +137,9 @@ export async function creerBande(corps) {
   try {
     return await transaction(async (client) => {
       const { rows: [{ id }] } = await client.query(
-        `INSERT INTO bande (nom, date_debut, duree_mois, nombre_males, nombre_femelles, prix_poussins)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-        [v.nom, v.dateDebut, v.dureeMois, v.nombreMales, v.nombreFemelles, v.prixPoussins],
+        `INSERT INTO bande (nom, date_debut, duree_mois, nombre_poussins, prix_poussins)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [v.nom, v.dateDebut, v.dureeMois, v.nombrePoussins, v.prixPoussins],
       );
       const bande = await lire(client, id);
       await journaliser(client, {
@@ -144,8 +147,7 @@ export async function creerBande(corps) {
         module: 'bandes',
         action: 'creation',
         entiteId: id,
-        description: `Bande « ${v.nom} » créée : ${nombreFr(v.nombreMales + v.nombreFemelles)} poussins `
-          + `(${nombreFr(v.nombreMales)} mâles, ${nombreFr(v.nombreFemelles)} femelles) pour ${montantFr(v.prixPoussins)}, `
+        description: `Bande « ${v.nom} » créée : ${nombreFr(v.nombrePoussins)} poussins pour ${montantFr(v.prixPoussins)}, `
           + `début le ${dateFr(v.dateDebut)}, durée ${v.dureeMois} mois`,
         apres: instantane(bande),
       });
@@ -160,8 +162,7 @@ const LIBELLES = {
   nom: ['nom', (x) => `« ${x} »`],
   dateDebut: ['date de début', dateFr],
   dureeMois: ['durée', (x) => `${x} mois`],
-  nombreMales: ['mâles', nombreFr],
-  nombreFemelles: ['femelles', nombreFr],
+  nombrePoussins: ['nombre de poussins', nombreFr],
   prixPoussins: ['prix des poussins', (x) => (x == null ? 'à saisir' : montantFr(x))],
 };
 
@@ -177,10 +178,10 @@ export async function modifierBande(id, corps) {
       if (!changements.length) return avant;
 
       await client.query(
-        `UPDATE bande SET nom = $1, date_debut = $2, duree_mois = $3, nombre_males = $4, nombre_femelles = $5,
-                prix_poussins = $6, modifie_le = now()
-          WHERE id = $7`,
-        [v.nom, v.dateDebut, v.dureeMois, v.nombreMales, v.nombreFemelles, v.prixPoussins, id],
+        `UPDATE bande SET nom = $1, date_debut = $2, duree_mois = $3, nombre_poussins = $4,
+                prix_poussins = $5, modifie_le = now()
+          WHERE id = $6`,
+        [v.nom, v.dateDebut, v.dureeMois, v.nombrePoussins, v.prixPoussins, id],
       );
       // Fewer chicks or a later start date must still fit the health declarations already made.
       await verifierCoherence(client, id);

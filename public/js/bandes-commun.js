@@ -55,7 +55,7 @@ function creerDialogue(html) {
  */
 export function ouvrirFormulaireBande(bande = null) {
   const valeurs = bande ?? {
-    nom: '', dateDebut: aujourdhui(), dureeMois: 4, nombreMales: '', nombreFemelles: '', prixPoussins: null,
+    nom: '', dateDebut: aujourdhui(), dureeMois: 4, nombrePoussins: '', prixPoussins: null,
   };
   const dialogue = creerDialogue(`
     <form method="dialog" novalidate>
@@ -74,17 +74,11 @@ export function ouvrirFormulaireBande(bande = null) {
         <input id="dureeMois" type="number" min="1" max="12" step="1" required value="${echapper(valeurs.dureeMois)}">
         <span class="aide" id="fin-prevue"></span>
       </div>
-      <div class="champs-cote">
-        <div class="champ">
-          <label for="nombreMales">Poussins mâles</label>
-          <input id="nombreMales" type="number" min="0" max="1000000" step="1" inputmode="numeric" value="${echapper(valeurs.nombreMales)}">
-        </div>
-        <div class="champ">
-          <label for="nombreFemelles">Poussins femelles</label>
-          <input id="nombreFemelles" type="number" min="0" max="1000000" step="1" inputmode="numeric" value="${echapper(valeurs.nombreFemelles)}">
-        </div>
+      <div class="champ">
+        <label for="nombrePoussins">Nombre de poussins</label>
+        <input id="nombrePoussins" type="number" min="1" max="1000000" step="1" inputmode="numeric" value="${echapper(valeurs.nombrePoussins)}">
+        <span class="aide">Le sexe n’est pas encore connu : vous le déclarerez plus tard dans « Mortalité et malades ».</span>
       </div>
-      <p class="aide total-poussins" id="total-poussins"></p>
       <div class="champ">
         <label for="prixPoussins">Prix total des poussins (DH)</label>
         <input id="prixPoussins" inputmode="decimal" placeholder="Ex. 32 500" value="${valeurs.prixPoussins == null ? '' : echapper(String(valeurs.prixPoussins).replace('.', ','))}">
@@ -111,11 +105,6 @@ export function ouvrirFormulaireBande(bande = null) {
   form.dureeMois.addEventListener('input', majFin);
   majFin();
 
-  const totalPoussins = dialogue.querySelector('#total-poussins');
-  const majTotal = () => {
-    const total = (Number(form.nombreMales.value) || 0) + (Number(form.nombreFemelles.value) || 0);
-    totalPoussins.textContent = `Total : ${formaterNombre(total)} poussins`;
-  };
   const prixUnitaire = dialogue.querySelector('#prix-unitaire');
   const lirePrix = () => {
     const t = form.prixPoussins.value.trim().replace(/[\s\u202f\u00a0]/g, '').replace(/dh$/i, '').replace(',', '.');
@@ -124,16 +113,12 @@ export function ouvrirFormulaireBande(bande = null) {
   };
   const majPrix = () => {
     const prix = lirePrix();
-    const total = (Number(form.nombreMales.value) || 0) + (Number(form.nombreFemelles.value) || 0);
+    const total = Number(form.nombrePoussins.value) || 0;
     prixUnitaire.textContent = prix != null && !Number.isNaN(prix) && total > 0
       ? `soit ${formaterMontant(Math.round((prix / total) * 100) / 100)} par poussin` : '';
   };
-  for (const champ of [form.nombreMales, form.nombreFemelles]) {
-    champ.addEventListener('input', majTotal);
-    champ.addEventListener('input', majPrix);
-  }
+  form.nombrePoussins.addEventListener('input', majPrix);
   form.prixPoussins.addEventListener('input', majPrix);
-  majTotal();
   majPrix();
 
   return new Promise((resoudre) => {
@@ -150,8 +135,7 @@ export function ouvrirFormulaireBande(bande = null) {
         nom: form.nom.value,
         dateDebut: form.dateDebut.value,
         dureeMois: form.dureeMois.value === '' ? null : Number(form.dureeMois.value),
-        nombreMales: form.nombreMales.value === '' ? 0 : Number(form.nombreMales.value),
-        nombreFemelles: form.nombreFemelles.value === '' ? 0 : Number(form.nombreFemelles.value),
+        nombrePoussins: form.nombrePoussins.value === '' ? null : Number(form.nombrePoussins.value),
         prixPoussins: lirePrix(),
       };
       if (Number.isNaN(corps.prixPoussins)) {

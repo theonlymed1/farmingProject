@@ -1,5 +1,6 @@
-// Mortalité et malades (?bande=…): three declaration forms (malades, guérisons, morts),
-// males and females separately, the flock table and the list of declarations.
+// Mortalité et malades (?bande=…): four declaration forms — malades, guérisons, morts (males,
+// females and non-sexed birds) and "Déclarer le sexe" (how many healthy non-sexed birds are
+// males / females) — plus the flock table and the list of declarations.
 import { monterLayout } from '../layout.js';
 import { api } from '../api.js';
 import { formaterDate, formaterNombre, aujourdhui } from '../format.js';
@@ -13,6 +14,13 @@ const message = document.getElementById('message');
 let etat = null; // { bande, mouvements }
 
 const FORMULAIRES = [
+  {
+    type: 'sexage',
+    titre: 'Déclarer le sexe',
+    aide: 'Parmi les oiseaux non sexés en bonne santé, indiquez combien sont des mâles et des femelles.',
+    bouton: 'Déclarer le sexe',
+    classe: 'declaration-sexage',
+  },
   {
     type: 'maladie',
     titre: 'Déclarer des malades',
@@ -37,22 +45,31 @@ const FORMULAIRES = [
 ];
 
 const LIBELLES_TYPE = {
+  sexage: 'Sexe déclaré',
   maladie: 'Malades',
   guerison: 'Guérisons',
   mort: 'Morts',
 };
 
-function libelleOiseaux(males, femelles) {
+function libelleOiseaux(males, femelles, nonSexes = 0) {
   const parts = [];
   if (males) parts.push(`${formaterNombre(males)} mâle${males > 1 ? 's' : ''}`);
   if (femelles) parts.push(`${formaterNombre(femelles)} femelle${femelles > 1 ? 's' : ''}`);
-  return parts.join(' et ');
+  if (nonSexes) parts.push(`${formaterNombre(nonSexes)} non sexé${nonSexes > 1 ? 's' : ''}`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} et ${parts.at(-1)}` : parts.join('');
 }
+
+const nombreSaisi = (input) => (input && input.value !== '' ? Number(input.value) : 0);
 
 // --- Forms -------------------------------------------------------------------
 
 function htmlFormulaire(f) {
   const id = (champ) => `${f.type}-${champ}`;
+  const champNombre = (nom, libelle) => `
+          <div class="champ">
+            <label for="${id(nom)}">${libelle}</label>
+            <input id="${id(nom)}" name="${nom}" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
+          </div>`;
   return `
     <section class="carte declaration ${f.classe}" aria-labelledby="${id('titre')}">
       <h2 id="${id('titre')}">${f.titre}</h2>
@@ -63,17 +80,13 @@ function htmlFormulaire(f) {
           <label for="${id('date')}">Date</label>
           <input id="${id('date')}" name="date" type="date" required>
         </div>
-        <div class="champs-cote">
-          <div class="champ">
-            <label for="${id('males')}">Mâles</label>
-            <input id="${id('males')}" name="males" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
-          </div>
-          <div class="champ">
-            <label for="${id('femelles')}">Femelles</label>
-            <input id="${id('femelles')}" name="femelles" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
-          </div>
+        <div class="${f.type === 'sexage' ? 'champs-cote' : 'champs-trois'}">
+          ${champNombre('males', 'Mâles')}
+          ${champNombre('femelles', 'Femelles')}
+          ${f.type === 'sexage' ? '' : champNombre('nonSexes', 'Non sexés')}
         </div>
         <p class="aide disponibles" data-disponibles></p>
+        ${f.type === 'sexage' ? '<p class="aide reste-non-sexes" data-reste></p>' : ''}
         ${f.type === 'mort' ? `
         <fieldset class="champ choix" id="${id('provenance')}">
           <legend>Avant de mourir, ces oiseaux étaient :</legend>
@@ -89,14 +102,26 @@ function htmlFormulaire(f) {
     </section>`;
 }
 
-/** Healthy / sick birds available as the source of each declaration. */
+/** Birds available as the source of each declaration, and what the sexing will leave. */
 function majDisponibles() {
-  const { males, femelles } = etat.bande.sante;
-  const texte = (groupe, mot) => `Disponibles : ${formaterNombre(males[groupe])} mâles et ${formaterNombre(femelles[groupe])} femelles ${mot}.`;
+  const { males, femelles, nonSexes } = etat.bande.sante;
   for (const form of document.querySelectorAll('#declarations form')) {
-    let groupe = form.dataset.type === 'guerison' ? 'malades' : 'sains';
-    if (form.dataset.type === 'mort') groupe = form.provenance.value;
-    form.querySelector('[data-disponibles]').textContent = texte(groupe, groupe === 'sains' ? 'en bonne santé' : 'malades');
+    const { type } = form.dataset;
+    const zone = form.querySelector('[data-disponibles]');
+    if (type === 'sexage') {
+      zone.textContent = `Oiseaux non sexés en bonne santé : ${formaterNombre(nonSexes.sains)}.`;
+      const reste = nonSexes.sains - nombreSaisi(form.males) - nombreSaisi(form.femelles);
+      const r = form.querySelector('[data-reste]');
+      r.textContent = reste >= 0
+        ? `Il en restera ${formaterNombre(reste)} non sexé${reste > 1 ? 's' : ''}.`
+        : `C’est ${formaterNombre(-reste)} de trop.`;
+      r.classList.toggle('reste-trop', reste < 0);
+      continue;
+    }
+    let groupe = type === 'guerison' ? 'malades' : 'sains';
+    if (type === 'mort') groupe = form.provenance.value;
+    zone.textContent = `Disponibles : ${formaterNombre(males[groupe])} mâles, ${formaterNombre(femelles[groupe])} femelles `
+      + `et ${formaterNombre(nonSexes[groupe])} non sexés ${groupe === 'sains' ? 'en bonne santé' : 'malades'}.`;
   }
 }
 
@@ -105,10 +130,12 @@ function preparerFormulaires() {
   zone.innerHTML = FORMULAIRES.map(htmlFormulaire).join('');
 
   for (const form of zone.querySelectorAll('form')) {
+    const { type } = form.dataset;
     form.date.value = aujourdhui();
     form.date.max = aujourdhui();
     form.date.min = etat.bande.dateDebut;
     form.querySelectorAll('[name="provenance"]').forEach((r) => r.addEventListener('change', majDisponibles));
+    if (type === 'sexage') [form.males, form.femelles].forEach((i) => i.addEventListener('input', majDisponibles));
 
     form.addEventListener('submit', async (evt) => {
       evt.preventDefault();
@@ -119,23 +146,29 @@ function preparerFormulaires() {
       bouton.disabled = true;
 
       const corps = {
-        type: form.dataset.type,
+        type,
         date: form.date.value,
-        males: form.males.value === '' ? 0 : Number(form.males.value),
-        femelles: form.femelles.value === '' ? 0 : Number(form.femelles.value),
+        males: nombreSaisi(form.males),
+        femelles: nombreSaisi(form.femelles),
+        nonSexes: nombreSaisi(form.nonSexes),
         provenance: form.provenance?.value,
         note: form.note.value,
       };
       try {
         etat = await api.post(`/bandes/${bandeId}/volaille`, corps);
-        afficherEtat();
         form.males.value = '';
         form.femelles.value = '';
+        if (form.nonSexes) form.nonSexes.value = '';
         form.note.value = '';
-        const detail = corps.type === 'mort' ? ' morts' : corps.type === 'maladie' ? ' malades' : ' guéris';
-        afficherSucces(boite, `Enregistré : ${libelleOiseaux(corps.males, corps.femelles)}${detail} le ${formaterDate(corps.date)}.`, 6000);
+        afficherEtat();
+        const oiseaux = libelleOiseaux(corps.males, corps.femelles, corps.nonSexes);
+        const detail = {
+          sexage: `Sexe déclaré : ${oiseaux}`, mort: `${oiseaux} morts`, maladie: `${oiseaux} malades`, guerison: `${oiseaux} guéris`,
+        }[type];
+        afficherSucces(boite, `Enregistré : ${detail} le ${formaterDate(corps.date)}.`, 6000);
       } catch (e) {
-        const correspondance = { date: `${corps.type}-date`, males: `${corps.type}-males`, femelles: `${corps.type}-femelles`, note: `${corps.type}-note`, provenance: `${corps.type}-provenance` };
+        const correspondance = Object.fromEntries(['date', 'males', 'femelles', 'nonSexes', 'note', 'provenance']
+          .map((c) => [c, `${type}-${c}`]));
         if (e.details && !e.details.contrainte) afficherErreursChamps(form, e.details, correspondance);
         else afficherErreur(boite, e);
       } finally {
@@ -146,6 +179,12 @@ function preparerFormulaires() {
 }
 
 // --- Table + list ----------------------------------------------------------------
+
+function precisionType(m) {
+  if (m.type === 'mort') return `(${m.provenance === 'malades' ? 'étaient malades' : 'étaient en bonne santé'})`;
+  if (m.type === 'sexage') return '(parmi les non sexés)';
+  return '';
+}
 
 function afficherJournal() {
   const zone = document.getElementById('journal');
@@ -161,6 +200,7 @@ function afficherJournal() {
           <th scope="col">Déclaration</th>
           <th scope="col" class="nombre">Mâles</th>
           <th scope="col" class="nombre">Femelles</th>
+          <th scope="col" class="nombre">Non sexés</th>
           <th scope="col" class="nombre">Total</th>
           <th scope="col">Remarque</th>
           <th scope="col" class="no-print"><span class="visuellement-cache">Actions</span></th>
@@ -171,9 +211,10 @@ function afficherJournal() {
           <tr>
             <td>${formaterDate(m.date)}</td>
             <td><span class="badge badge-${m.type}">${LIBELLES_TYPE[m.type]}</span>
-              ${m.type === 'mort' ? `<span class="texte-discret">(${m.provenance === 'malades' ? 'étaient malades' : 'étaient en bonne santé'})</span>` : ''}</td>
+              <span class="texte-discret">${precisionType(m)}</span></td>
             <td class="nombre">${formaterNombre(m.males)}</td>
             <td class="nombre">${formaterNombre(m.femelles)}</td>
+            <td class="nombre">${m.type === 'sexage' ? '—' : formaterNombre(m.nonSexes)}</td>
             <td class="nombre">${formaterNombre(m.total)}</td>
             <td>${echapper(m.note ?? '')}</td>
             <td class="no-print"><button type="button" class="bouton-lien bouton-lien-danger" data-annuler="${m.id}">Annuler</button></td>
@@ -194,7 +235,7 @@ document.getElementById('journal').addEventListener('click', async (evt) => {
   const m = etat.mouvements.find((x) => x.id === Number(bouton.dataset.annuler));
   const ok = await confirmer({
     titre: 'Annuler cette déclaration ?',
-    message: `${LIBELLES_TYPE[m.type]} du ${formaterDate(m.date)} : ${libelleOiseaux(m.males, m.femelles)}. `
+    message: `${LIBELLES_TYPE[m.type]} du ${formaterDate(m.date)} : ${libelleOiseaux(m.males, m.femelles, m.nonSexes)}. `
       + 'Les nombres du troupeau seront recalculés.',
     bouton: 'Annuler la déclaration',
     danger: true,

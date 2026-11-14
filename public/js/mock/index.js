@@ -29,28 +29,44 @@ function calculer(b) {
   const ageJours = Math.round((Date.parse(aujourdhui) - Date.parse(b.dateDebut)) / 864e5) + 1;
   const mv = lireMouvements().filter((m) => m.bandeId === b.id);
   const somme = (f) => mv.reduce((t, m) => t + f(m), 0);
-  const groupe = (recus, cle) => {
-    const morts = somme((m) => (m.type === 'mort' ? m[cle] : 0));
-    const malades = somme((m) => ({ maladie: m[cle], guerison: -m[cle] }[m.type]
-      ?? (m.provenance === 'malades' ? -m[cle] : 0)));
+  // Same rules as server/modules/volaille/coherence.js (every chick starts non-sexed and healthy).
+  const effet = (m, cle, etatSante) => {
+    if (etatSante === 'malades') return { maladie: m[cle], guerison: -m[cle], mort: m.provenance === 'malades' ? -m[cle] : 0 }[m.type] ?? 0;
+    const sexage = cle === 'nonSexes' ? -(m.males + m.femelles) : m[cle];
     return {
-      recus, sains: recus - morts - malades, malades, morts, vivants: recus - morts,
-      tauxMortalite: recus ? Math.round((morts / recus) * 10000) / 100 : 0,
+      maladie: -m[cle], guerison: m[cle], mort: m.provenance === 'sains' ? -m[cle] : 0, sexage,
+    }[m.type] ?? 0;
+  };
+  const groupe = (cle, depart) => {
+    const sains = depart + somme((m) => effet(m, cle, 'sains'));
+    const malades = somme((m) => effet(m, cle, 'malades'));
+    const morts = somme((m) => (m.type === 'mort' ? m[cle] : 0));
+    return {
+      sains, malades, morts, vivants: sains + malades,
     };
   };
-  const males = groupe(b.nombreMales, 'males');
-  const femelles = groupe(b.nombreFemelles, 'femelles');
-  const nombrePoussins = b.nombreMales + b.nombreFemelles;
+  const males = groupe('males', 0);
+  const femelles = groupe('femelles', 0);
+  const nonSexes = groupe('nonSexes', b.nombrePoussins);
+  const morts = males.morts + femelles.morts + nonSexes.morts;
   const tot = {
-    recus: nombrePoussins,
-    sains: males.sains + femelles.sains,
-    malades: males.malades + femelles.malades,
-    morts: males.morts + femelles.morts,
-    vivants: males.vivants + femelles.vivants,
-    tauxMortalite: nombrePoussins ? Math.round(((males.morts + femelles.morts) / nombrePoussins) * 10000) / 100 : 0,
+    recus: b.nombrePoussins,
+    sains: males.sains + femelles.sains + nonSexes.sains,
+    malades: males.malades + femelles.malades + nonSexes.malades,
+    morts,
+    vivants: b.nombrePoussins - morts,
+    tauxMortalite: Math.round((morts / b.nombrePoussins) * 10000) / 100,
   };
   return {
-    ...b, nombrePoussins, prixParPoussin: b.prixPoussins == null ? null : Math.round((b.prixPoussins / nombrePoussins) * 100) / 100, dateFin, statut, ageJours, effectifActuel: tot.vivants, sante: { males, femelles, total: tot },
+    ...b,
+    prixParPoussin: b.prixPoussins == null ? null : Math.round((b.prixPoussins / b.nombrePoussins) * 100) / 100,
+    dateFin,
+    statut,
+    ageJours,
+    effectifActuel: tot.vivants,
+    sante: {
+      males, femelles, nonSexes, total: tot,
+    },
   };
 }
 
@@ -71,12 +87,12 @@ function validerBandeMock(c, idIgnore) {
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(c.dateDebut ?? '')) champs.dateDebut = 'La date de début est obligatoire (format jj/mm/aaaa).';
   if (!Number.isInteger(c.dureeMois) || c.dureeMois < 1 || c.dureeMois > 12) champs.dureeMois = 'La durée doit être entre 1 et 12.';
-  if ((c.nombreMales ?? 0) + (c.nombreFemelles ?? 0) < 1) champs.nombreMales = 'Le total des poussins (mâles + femelles) doit être entre 1 et 1000000.';
+  if (!Number.isInteger(c.nombrePoussins) || c.nombrePoussins < 1) champs.nombrePoussins = 'Le nombre de poussins doit être entre 1 et 1000000.';
   if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
   if (c.prixPoussins == null) champs.prixPoussins = 'Le prix total des poussins est obligatoire.';
   if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
   return {
-    nom: c.nom.trim(), dateDebut: c.dateDebut, dureeMois: c.dureeMois, nombreMales: c.nombreMales ?? 0, nombreFemelles: c.nombreFemelles ?? 0, prixPoussins: c.prixPoussins,
+    nom: c.nom.trim(), dateDebut: c.dateDebut, dureeMois: c.dureeMois, nombrePoussins: c.nombrePoussins, prixPoussins: c.prixPoussins,
   };
 }
 
@@ -295,22 +311,31 @@ const routes = [
       const champs = {};
       const males = corps.males || 0;
       const femelles = corps.femelles || 0;
-      if (males + femelles === 0) champs.males = 'Indiquez au moins un oiseau (mâle ou femelle).';
+      const nonSexes = corps.type === 'sexage' ? 0 : (corps.nonSexes || 0);
+      if (males + femelles + nonSexes === 0) {
+        champs.males = corps.type === 'sexage' ? 'Indiquez au moins un mâle ou une femelle.' : 'Indiquez au moins un oiseau (mâle, femelle ou non sexé).';
+      }
       if (!corps.date) champs.date = 'La date est obligatoire (format jj/mm/aaaa).';
       if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
       // Simplified check on today's numbers (the real server checks date by date).
       const { sante } = calculer(trouverBande(id));
-      const source = corps.type === 'guerison' ? 'malades' : corps.type === 'mort' ? corps.provenance : 'sains';
-      for (const [cle, sexe, mot] of [['males', 'males', 'mâles'], ['femelles', 'femelles', 'femelles']]) {
-        const manque = (corps[cle] || 0) - sante[sexe][source];
-        if (manque > 0) {
-          throw new ErreurApi(409, 'CONFLIT', `Pas assez de ${mot} ${source === 'sains' ? 'en bonne santé' : 'malades'} au ${corps.date.split('-').reverse().join('/')} : il en manquerait ${manque}.`);
+      const jj = corps.date.split('-').reverse().join('/');
+      if (corps.type === 'sexage') {
+        const manque = males + femelles - sante.nonSexes.sains;
+        if (manque > 0) throw new ErreurApi(409, 'CONFLIT', `Pas assez d’oiseaux non sexés en bonne santé au ${jj} : il en manquerait ${manque}.`);
+      } else {
+        const source = corps.type === 'guerison' ? 'malades' : corps.type === 'mort' ? corps.provenance : 'sains';
+        for (const [cle, mot] of [['males', 'de mâles'], ['femelles', 'de femelles'], ['nonSexes', 'd’oiseaux non sexés']]) {
+          const manque = (cle === 'nonSexes' ? nonSexes : corps[cle] || 0) - sante[cle][source];
+          if (manque > 0) {
+            throw new ErreurApi(409, 'CONFLIT', `Pas assez ${mot} ${source === 'sains' ? 'en bonne santé' : 'malades'} au ${jj} : il en manquerait ${manque}.`);
+          }
         }
       }
       const l = lireMouvements();
       l.push({
         id: (l.at(-1)?.id ?? 0) + 1, bandeId: Number(id), type: corps.type, provenance: corps.type === 'mort' ? corps.provenance : null,
-        date: corps.date, males, femelles, total: males + femelles, note: corps.note?.trim() || null, creeLe: new Date().toISOString(),
+        date: corps.date, males, femelles, nonSexes, total: males + femelles + nonSexes, note: corps.note?.trim() || null, creeLe: new Date().toISOString(),
       });
       ecrireMouvements(l);
       return etatVolaille(id);

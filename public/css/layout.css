@@ -277,3 +277,14 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .indicateurs-cinq { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .indicateurs-cinq .indicateur-valeur { font-size: 1.3rem; white-space: nowrap; }
 .indicateur-fort { border-color: var(--vert-700); border-width: 2px; }
+
+/* --- Sexing (Mortalité et malades) --------------------------------------------------- */
+.champs-trois { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--e2); }
+.champs-trois input { width: 100%; min-width: 0; }
+.declaration-sexage { border-top-color: var(--categorie-sexage, #5b5fc7); }
+.badge-sexage { background: #e8e9fb; color: #3b3f9e; }
+.reste-non-sexes { font-weight: 600; margin-top: calc(-1 * var(--e2)); }
+.reste-trop { color: var(--rouge-600); }
+.resume-troupeau { margin-bottom: var(--e2); }
+.grille-declarations { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 1000px) { .grille-declarations { grid-template-columns: 1fr; } }
