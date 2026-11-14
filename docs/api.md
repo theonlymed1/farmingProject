@@ -450,7 +450,8 @@ and `coutTotal` = chicks + charges + workers' `cout`.
 
 ## Phase 7 — Historique
 
-Read-only list of every operation written by `journaliser()` since phase 1. Nothing can be deleted.
+List of every operation written by `journaliser()` since phase 1. Lines can be deleted one by one, or all at
+once, with the password.
 
 ### GET /historique
 
@@ -483,3 +484,15 @@ Response 200:
 ```
 
 Newest first. Errors: 400 `VALIDATION` on bad filters, 404 if `bande` isn't a valid id.
+
+### DELETE /historique/:id
+
+Deletes one line. Body: `{ "motDePasse": "…" }`. Response 200: `{ "data": { "supprimees": 1 } }`.
+Errors: 400 `VALIDATION` on `motDePasse`, 404 `INTROUVABLE`. Nothing is written about it.
+
+### POST /historique/effacer
+
+Clears the history of one Bande (`bande` given) or the whole history (no `bande`), whatever the filters on
+screen. Body: `{ "motDePasse": "…", "bande": 12 }`. Response 200: `{ "data": { "supprimees": 47 } }`.
+One line is then written so a trace remains: "Historique effacé : 47 opérations supprimées"
+(module `parametres`) or "Historique de la bande « … » effacé : 13 opérations supprimées" (module `bandes`).

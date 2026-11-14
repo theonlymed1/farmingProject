@@ -1,9 +1,12 @@
-// Historique (read-only): ?bande=… for one Bande, nothing for "Historique général".
+// Historique: ?bande=… for one Bande, nothing for "Historique général".
 // Filters by dates, section, action and words; 100 entries at a time; details = values before / after.
+// Deleting one line or clearing everything asks for the password.
 import { monterLayout } from '../layout.js';
 import { api } from '../api.js';
 import { formaterDate, formaterDateHeure, formaterNombre } from '../format.js';
-import { echapper, afficherErreur } from '../ui.js';
+import {
+  echapper, afficherErreur, afficherSucces, confirmerAvecMotDePasse,
+} from '../ui.js';
 
 const PAR_PAGE = 100;
 const parametre = new URLSearchParams(location.search).get('bande');
@@ -99,7 +102,10 @@ function afficher() {
             <td><span class="badge ${classe}">${action}</span></td>
             ${bandeId ? '' : `<td>${e.bandeNom ? echapper(e.bandeNom) : '<span class="texte-discret">—</span>'}</td>`}
             <td>${echapper(e.description)}</td>
-            <td class="no-print">${e.avant || e.apres ? `<button type="button" class="bouton-lien" data-details="${e.id}">Détails</button>` : ''}</td>
+            <td class="no-print actions-ligne">
+              ${e.avant || e.apres ? `<button type="button" class="bouton-lien" data-details="${e.id}">Détails</button>` : ''}
+              <button type="button" class="bouton-lien bouton-lien-danger" data-supprimer="${e.id}">Supprimer</button>
+            </td>
           </tr>`;
   }).join('')}
       </tbody>
@@ -182,9 +188,39 @@ form.addEventListener('input', (e) => {
 form.addEventListener('submit', (e) => e.preventDefault());
 document.getElementById('bouton-effacer').addEventListener('click', () => { form.reset(); charger(); });
 boutonPlus.addEventListener('click', () => charger({ suite: true }));
-liste.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-details]');
-  if (b) voirDetails(entrees.find((x) => x.id === Number(b.dataset.details)));
+liste.addEventListener('click', async (e) => {
+  const details = e.target.closest('[data-details]');
+  if (details) voirDetails(entrees.find((x) => x.id === Number(details.dataset.details)));
+  const suppr = e.target.closest('[data-supprimer]');
+  if (!suppr) return;
+  const entree = entrees.find((x) => x.id === Number(suppr.dataset.supprimer));
+  const ok = await confirmerAvecMotDePasse({
+    titre: 'Supprimer cette opération de l’historique ?',
+    avertissement: `${formaterDateHeure(entree.dateHeure)} — ${entree.description}`,
+    bouton: 'Supprimer',
+    action: (motDePasse) => api.supprimer(`/historique/${entree.id}`, { motDePasse }),
+  });
+  if (!ok) return;
+  await charger();
+  afficherSucces(message, 'Opération supprimée de l’historique.');
+});
+
+document.getElementById('bouton-effacer-tout').addEventListener('click', async () => {
+  // The count of the whole scope (Bande or everything), whatever filters are shown.
+  const { total: n } = await api.get(`/historique?limite=1${bandeId ? `&bande=${bandeId}` : ''}`);
+  if (!n) { afficherSucces(message, 'L’historique est déjà vide.'); return; }
+  const ok = await confirmerAvecMotDePasse({
+    titre: bandeId ? 'Effacer l’historique de cette bande ?' : 'Effacer tout l’historique ?',
+    avertissement: `${formaterNombre(n)} opération${n > 1 ? 's' : ''} ${bandeId ? 'de cette bande ' : '(toutes les bandes et les paramètres) '}`
+      + `seront supprimée${n > 1 ? 's' : ''} définitivement, quels que soient les filtres. `
+      + 'Une ligne indiquant que l’historique a été effacé sera conservée.',
+    bouton: 'Effacer l’historique',
+    action: (motDePasse) => api.post('/historique/effacer', bandeId ? { motDePasse, bande: bandeId } : { motDePasse }),
+  });
+  if (!ok) return;
+  form.reset();
+  await charger();
+  afficherSucces(message, `Historique effacé : ${formaterNombre(ok.supprimees)} opération${ok.supprimees > 1 ? 's' : ''} supprimée${ok.supprimees > 1 ? 's' : ''}.`);
 });
 document.getElementById('bouton-imprimer-page').addEventListener('click', () => window.print());
 

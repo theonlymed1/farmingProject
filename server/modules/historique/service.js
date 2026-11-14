@@ -1,5 +1,7 @@
-// Historique: read-only list of every recorded operation, with filters.
-import { query } from '../../db/postgres.js';
+// Historique: list of every recorded operation, with filters. Lines can be deleted (password).
+import { query, transaction } from '../../db/postgres.js';
+import { journaliser } from '../../lib/historique.js';
+import { exigerMotDePasse } from '../auth/service.js';
 import { erreurs } from '../../lib/erreurs.js';
 import { date, entier, idParam } from '../../lib/validation.js';
 
@@ -77,4 +79,50 @@ export async function listerHistorique(filtres = {}) {
       apres: r.apres,
     })),
   };
+}
+
+// --- Clearing (password required) ------------------------------------------------------
+
+/** Deletes one history line. */
+export async function supprimerEntree(id, motDePasse, utilisateurId) {
+  return transaction(async (client) => {
+    await exigerMotDePasse(client, utilisateurId, motDePasse);
+    const { rows } = await client.query('DELETE FROM historique WHERE id = $1 RETURNING id', [id]);
+    if (!rows[0]) throw erreurs.introuvable('Cette opération n’existe pas ou a déjà été supprimée.');
+    return { supprimees: 1 };
+  });
+}
+
+/**
+ * Clears the whole history of one Bande (bande given) or the whole history (no bande).
+ * One line is then written, so a trace remains that the history was cleared.
+ */
+export async function effacerHistorique({ bande, motDePasse }, utilisateurId) {
+  let bandeId = null;
+  if (bande !== undefined && bande !== null && bande !== '') {
+    bandeId = idParam(bande);
+    if (!bandeId) throw erreurs.introuvable('Cette bande n’existe pas.');
+  }
+  return transaction(async (client) => {
+    await exigerMotDePasse(client, utilisateurId, motDePasse);
+    let nomBande = null;
+    if (bandeId) {
+      const { rows: [b] } = await client.query('SELECT nom FROM bande WHERE id = $1', [bandeId]);
+      if (!b) throw erreurs.introuvable('Cette bande n’existe pas.');
+      nomBande = b.nom;
+    }
+    const { rows } = await client.query(
+      `DELETE FROM historique ${bandeId ? 'WHERE bande_id = $1' : ''} RETURNING id`,
+      bandeId ? [bandeId] : [],
+    );
+    const n = rows.length;
+    await journaliser(client, {
+      bandeId,
+      module: bandeId ? 'bandes' : 'parametres',
+      action: 'suppression',
+      description: `Historique ${nomBande ? `de la bande « ${nomBande} » ` : ''}effacé : `
+        + `${n} opération${n > 1 ? 's' : ''} supprimée${n > 1 ? 's' : ''}`,
+    });
+    return { supprimees: n };
+  });
 }
