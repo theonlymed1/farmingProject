@@ -3,12 +3,11 @@ import { query, transaction } from '../../db/postgres.js';
 import { journaliser } from '../../lib/historique.js';
 import { erreurs } from '../../lib/erreurs.js';
 import {
-  texte, date, dateFr, nombreFr,
+  texte, date, dateFr, nombreFr, montantFr,
 } from '../../lib/validation.js';
 import { lireBandeClient } from '../bandes/service.js';
 import { exigerMotDePasse } from '../auth/service.js';
 
-const montantFr = (n) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/[  ]/g, ' ')} DH`;
 const quantiteFr = (q, u) => (q == null ? null : `${nombreFr(q)}${u ? ` ${u}` : ''}`);
 
 function versJson(r) {
@@ -39,11 +38,16 @@ function resume(charges, bande) {
     if (c.prixTotal == null) t.sansPrix += 1;
     else t.total = Math.round((t.total + c.prixTotal) * 100) / 100;
   }
+  // Total cost of the Bande = chicks bought + charges with a price.
+  const prixPoussins = bande.prixPoussins ?? 0;
+  const coutTotal = Math.round((total + prixPoussins) * 100) / 100;
   return {
     total,
     nombre: charges.length,
     sansPrix: charges.length - avecPrix.length,
-    coutParPoussin: bande.nombrePoussins ? Math.round((total / bande.nombrePoussins) * 100) / 100 : 0,
+    prixPoussins: bande.prixPoussins,
+    coutTotal,
+    coutParPoussin: bande.nombrePoussins ? Math.round((coutTotal / bande.nombrePoussins) * 100) / 100 : 0,
     parType: [...parType.values()].sort((a, b) => b.total - a.total || a.type.localeCompare(b.type, 'fr')),
   };
 }

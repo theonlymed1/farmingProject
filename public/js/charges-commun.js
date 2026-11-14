@@ -15,19 +15,25 @@ export const ecrireNombre = (n) => (n == null ? '' : String(n).replace('.', ',')
 
 export const quantite = (c) => (c.quantite == null ? '—' : `${formaterNombre(c.quantite)}${c.unite ? ` ${echapper(c.unite)}` : ''}`);
 
-/** Tiles: total, number of charges, charges without price, cost per chick. */
+/** Tiles: chicks bought, charges, total cost of the Bande, prices still to enter, cost per chick. */
 export function tuilesCharges(resume) {
+  const poussinsInconnus = resume.prixPoussins == null;
   return `
-    <section class="indicateurs">
+    <section class="indicateurs indicateurs-cinq">
+      <div class="indicateur ${poussinsInconnus ? 'indicateur-alerte' : ''}">
+        <span class="indicateur-libelle">Achat des poussins</span>
+        <span class="indicateur-valeur">${poussinsInconnus ? 'à saisir' : formaterMontant(resume.prixPoussins)}</span>
+        <span class="indicateur-detail">${poussinsInconnus ? 'à ajouter avec « Modifier » sur la bande' : 'prix total payé'}</span>
+      </div>
       <div class="indicateur">
         <span class="indicateur-libelle">Total des charges</span>
         <span class="indicateur-valeur">${formaterMontant(resume.total)}</span>
-        <span class="indicateur-detail">${resume.sansPrix ? 'hors charges sans prix' : 'toutes les charges'}</span>
+        <span class="indicateur-detail">${formaterNombre(resume.nombre)} charge${resume.nombre > 1 ? 's' : ''}${resume.sansPrix ? ', hors prix à saisir' : ''}</span>
       </div>
-      <div class="indicateur">
-        <span class="indicateur-libelle">Nombre de charges</span>
-        <span class="indicateur-valeur">${formaterNombre(resume.nombre)}</span>
-        <span class="indicateur-detail">${resume.parType.length} type${resume.parType.length > 1 ? 's' : ''} de produit</span>
+      <div class="indicateur indicateur-fort">
+        <span class="indicateur-libelle">Coût total de la bande</span>
+        <span class="indicateur-valeur">${formaterMontant(resume.coutTotal)}</span>
+        <span class="indicateur-detail">poussins + charges</span>
       </div>
       <div class="indicateur ${resume.sansPrix ? 'indicateur-alerte' : ''}">
         <span class="indicateur-libelle">Prix à saisir</span>
@@ -37,7 +43,7 @@ export function tuilesCharges(resume) {
       <div class="indicateur">
         <span class="indicateur-libelle">Coût par poussin</span>
         <span class="indicateur-valeur">${formaterMontant(resume.coutParPoussin)}</span>
-        <span class="indicateur-detail">total ÷ poussins reçus</span>
+        <span class="indicateur-detail">coût total ÷ poussins reçus</span>
       </div>
     </section>`;
 }

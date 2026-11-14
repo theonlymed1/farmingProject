@@ -40,3 +40,26 @@ export function dateFr(iso) {
 }
 
 export const nombreFr = (n) => new Intl.NumberFormat('fr-FR').format(n).replace(/ /g, ' ');
+
+/**
+ * Decimal number typed as "12 500,50", "12500.5" or sent as 12500.5. Returns [value, error].
+ * Empty → [null, error if obligatoire else null].
+ */
+export function nombre(valeur, {
+  nom, min = 0, max = 9999999999, decimales = 2, obligatoire = false,
+}) {
+  if (valeur === null || valeur === undefined || valeur === '') {
+    return [null, obligatoire ? `${nom} est obligatoire.` : null];
+  }
+  const n = typeof valeur === 'string'
+    ? Number(valeur.replace(/[\s  ]/g, '').replace(/dh$/i, '').replace(',', '.'))
+    : valeur;
+  if (typeof n !== 'number' || !Number.isFinite(n)) return [null, `${nom} doit être un nombre.`];
+  if (n < min) return [null, min === 0 ? `${nom} ne peut pas être négatif.` : `${nom} doit être au moins ${min}.`];
+  if (n > max) return [null, `${nom} est trop grand.`];
+  return [Math.round(n * 10 ** decimales) / 10 ** decimales, null];
+}
+
+/** 12500.5 → '12 500,50 DH', for French history sentences. */
+export const montantFr = (n) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  .replace(/[  ]/g, ' ')} DH`;

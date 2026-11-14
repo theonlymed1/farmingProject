@@ -66,3 +66,4 @@ a { color: #000; text-decoration: none; }
 .indicateurs { grid-template-columns: repeat(4, 1fr); gap: 3mm; }
 .indicateur { padding: 2mm 3mm; }
 .indicateur-valeur { font-size: 13pt; }
+.indicateurs-cinq { grid-template-columns: repeat(5, 1fr); }

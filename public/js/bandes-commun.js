@@ -1,6 +1,8 @@
 // Shared by the Bandes list and the Bande page: status labels, add/edit dialog, delete dialog.
 import { api } from './api.js';
-import { formaterDate, formaterNombre, aujourdhui } from './format.js';
+import {
+  formaterDate, formaterNombre, formaterMontant, aujourdhui,
+} from './format.js';
 import {
   echapper, afficherErreur, afficherErreursChamps, effacerErreursChamps, brancherBasculesMotDePasse,
 } from './ui.js';
@@ -53,7 +55,7 @@ function creerDialogue(html) {
  */
 export function ouvrirFormulaireBande(bande = null) {
   const valeurs = bande ?? {
-    nom: '', dateDebut: aujourdhui(), dureeMois: 4, nombreMales: '', nombreFemelles: '',
+    nom: '', dateDebut: aujourdhui(), dureeMois: 4, nombreMales: '', nombreFemelles: '', prixPoussins: null,
   };
   const dialogue = creerDialogue(`
     <form method="dialog" novalidate>
@@ -83,6 +85,11 @@ export function ouvrirFormulaireBande(bande = null) {
         </div>
       </div>
       <p class="aide total-poussins" id="total-poussins"></p>
+      <div class="champ">
+        <label for="prixPoussins">Prix total des poussins (DH)</label>
+        <input id="prixPoussins" inputmode="decimal" placeholder="Ex. 32 500" value="${valeurs.prixPoussins == null ? '' : echapper(String(valeurs.prixPoussins).replace('.', ','))}">
+        <span class="aide" id="prix-unitaire"></span>
+      </div>
       <div class="actions-dialogue">
         <button type="button" class="bouton bouton-secondaire" data-fermer>Annuler</button>
         <button type="submit" class="bouton">${bande ? 'Enregistrer' : 'Confirmer'}</button>
@@ -109,9 +116,25 @@ export function ouvrirFormulaireBande(bande = null) {
     const total = (Number(form.nombreMales.value) || 0) + (Number(form.nombreFemelles.value) || 0);
     totalPoussins.textContent = `Total : ${formaterNombre(total)} poussins`;
   };
-  form.nombreMales.addEventListener('input', majTotal);
-  form.nombreFemelles.addEventListener('input', majTotal);
+  const prixUnitaire = dialogue.querySelector('#prix-unitaire');
+  const lirePrix = () => {
+    const t = form.prixPoussins.value.trim().replace(/[\s\u202f\u00a0]/g, '').replace(/dh$/i, '').replace(',', '.');
+    if (t === '') return null;
+    return /^\d+(\.\d+)?$/.test(t) ? Number(t) : NaN;
+  };
+  const majPrix = () => {
+    const prix = lirePrix();
+    const total = (Number(form.nombreMales.value) || 0) + (Number(form.nombreFemelles.value) || 0);
+    prixUnitaire.textContent = prix != null && !Number.isNaN(prix) && total > 0
+      ? `soit ${formaterMontant(Math.round((prix / total) * 100) / 100)} par poussin` : '';
+  };
+  for (const champ of [form.nombreMales, form.nombreFemelles]) {
+    champ.addEventListener('input', majTotal);
+    champ.addEventListener('input', majPrix);
+  }
+  form.prixPoussins.addEventListener('input', majPrix);
   majTotal();
+  majPrix();
 
   return new Promise((resoudre) => {
     let resultat = null;
@@ -129,7 +152,13 @@ export function ouvrirFormulaireBande(bande = null) {
         dureeMois: form.dureeMois.value === '' ? null : Number(form.dureeMois.value),
         nombreMales: form.nombreMales.value === '' ? 0 : Number(form.nombreMales.value),
         nombreFemelles: form.nombreFemelles.value === '' ? 0 : Number(form.nombreFemelles.value),
+        prixPoussins: lirePrix(),
       };
+      if (Number.isNaN(corps.prixPoussins)) {
+        afficherErreursChamps(form, { prixPoussins: 'Le prix doit être un nombre (ex. 32500 ou 32 500,50).' });
+        bouton.disabled = false;
+        return;
+      }
       try {
         resultat = bande ? await api.put(`/bandes/${bande.id}`, corps) : await api.post('/bandes', corps);
         dialogue.close();

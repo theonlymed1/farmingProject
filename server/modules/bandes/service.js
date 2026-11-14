@@ -3,7 +3,7 @@ import { query, transaction } from '../../db/postgres.js';
 import { journaliser } from '../../lib/historique.js';
 import { erreurs } from '../../lib/erreurs.js';
 import {
-  texte, entier, date, dateFr, nombreFr,
+  texte, entier, date, dateFr, nombreFr, nombre, montantFr,
 } from '../../lib/validation.js';
 import { SQL_EFFET, verifierCoherence } from '../volaille/coherence.js';
 import { exigerMotDePasse } from '../auth/service.js';
@@ -14,7 +14,7 @@ import { exigerMotDePasse } from '../auth/service.js';
 //  age_jours = day 1 is the arrival day
 //  s.*       = health totals per sex from the declarations (phase 3)
 const SELECT_BANDE = `
-  SELECT b.id, b.nom, b.date_debut, b.duree_mois, b.nombre_males, b.nombre_femelles, b.nombre_poussins,
+  SELECT b.id, b.nom, b.date_debut, b.duree_mois, b.nombre_males, b.nombre_femelles, b.nombre_poussins, b.prix_poussins,
          b.cree_le, b.modifie_le,
          fin.date_fin, s.morts_m, s.morts_f, s.malades_m, s.malades_f,
          CASE WHEN current_date < b.date_debut THEN 'a_venir'
@@ -53,6 +53,9 @@ function versJson(r) {
     nombreMales: r.nombre_males,
     nombreFemelles: r.nombre_femelles,
     nombrePoussins: r.nombre_poussins,
+    // Total paid for the chicks (DH); null for Bandes created before it was asked.
+    prixPoussins: r.prix_poussins,
+    prixParPoussin: r.prix_poussins == null ? null : Math.round((r.prix_poussins / r.nombre_poussins) * 100) / 100,
     effectifActuel: r.nombre_poussins - r.morts_m - r.morts_f,
     sante: {
       males: groupe(r.nombre_males, r.morts_m, r.malades_m),
@@ -69,6 +72,7 @@ function versJson(r) {
 /** Values stored in the history (what the farmer typed, not the computed fields). */
 const instantane = (b) => ({
   nom: b.nom, dateDebut: b.dateDebut, dureeMois: b.dureeMois, nombreMales: b.nombreMales, nombreFemelles: b.nombreFemelles,
+  prixPoussins: b.prixPoussins,
 });
 
 export function validerBande(corps) {
@@ -80,8 +84,12 @@ export function validerBande(corps) {
   const [nombreFemelles, eFemelles] = entier(corps?.nombreFemelles ?? 0, {
     nom: 'Le nombre de femelles', min: 0, max: 1000000,
   });
+  const [prixPoussins, ePrix] = nombre(corps?.prixPoussins, {
+    nom: 'Le prix total des poussins', obligatoire: true,
+  });
   if (eNom) champs.nom = eNom;
   if (eDate) champs.dateDebut = eDate;
+  if (ePrix) champs.prixPoussins = ePrix;
   if (eDuree) champs.dureeMois = eDuree;
   if (eMales) champs.nombreMales = eMales;
   if (eFemelles) champs.nombreFemelles = eFemelles;
@@ -90,7 +98,7 @@ export function validerBande(corps) {
   }
   if (Object.keys(champs).length) throw erreurs.validation('Vérifiez les champs indiqués.', champs);
   return {
-    nom, dateDebut, dureeMois, nombreMales, nombreFemelles,
+    nom, dateDebut, dureeMois, nombreMales, nombreFemelles, prixPoussins,
   };
 }
 
@@ -126,9 +134,9 @@ export async function creerBande(corps) {
   try {
     return await transaction(async (client) => {
       const { rows: [{ id }] } = await client.query(
-        `INSERT INTO bande (nom, date_debut, duree_mois, nombre_males, nombre_femelles)
-         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [v.nom, v.dateDebut, v.dureeMois, v.nombreMales, v.nombreFemelles],
+        `INSERT INTO bande (nom, date_debut, duree_mois, nombre_males, nombre_femelles, prix_poussins)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+        [v.nom, v.dateDebut, v.dureeMois, v.nombreMales, v.nombreFemelles, v.prixPoussins],
       );
       const bande = await lire(client, id);
       await journaliser(client, {
@@ -137,7 +145,7 @@ export async function creerBande(corps) {
         action: 'creation',
         entiteId: id,
         description: `Bande « ${v.nom} » créée : ${nombreFr(v.nombreMales + v.nombreFemelles)} poussins `
-          + `(${nombreFr(v.nombreMales)} mâles, ${nombreFr(v.nombreFemelles)} femelles), `
+          + `(${nombreFr(v.nombreMales)} mâles, ${nombreFr(v.nombreFemelles)} femelles) pour ${montantFr(v.prixPoussins)}, `
           + `début le ${dateFr(v.dateDebut)}, durée ${v.dureeMois} mois`,
         apres: instantane(bande),
       });
@@ -154,6 +162,7 @@ const LIBELLES = {
   dureeMois: ['durée', (x) => `${x} mois`],
   nombreMales: ['mâles', nombreFr],
   nombreFemelles: ['femelles', nombreFr],
+  prixPoussins: ['prix des poussins', (x) => (x == null ? 'à saisir' : montantFr(x))],
 };
 
 export async function modifierBande(id, corps) {
@@ -169,9 +178,9 @@ export async function modifierBande(id, corps) {
 
       await client.query(
         `UPDATE bande SET nom = $1, date_debut = $2, duree_mois = $3, nombre_males = $4, nombre_femelles = $5,
-                modifie_le = now()
-          WHERE id = $6`,
-        [v.nom, v.dateDebut, v.dureeMois, v.nombreMales, v.nombreFemelles, id],
+                prix_poussins = $6, modifie_le = now()
+          WHERE id = $7`,
+        [v.nom, v.dateDebut, v.dureeMois, v.nombreMales, v.nombreFemelles, v.prixPoussins, id],
       );
       // Fewer chicks or a later start date must still fit the health declarations already made.
       await verifierCoherence(client, id);

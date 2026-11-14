@@ -3,7 +3,9 @@
 // each new feature adds its section here.
 import { monterLayout } from '../layout.js';
 import { api } from '../api.js';
-import { formaterDate, formaterNombre, formaterDateHeure } from '../format.js';
+import {
+  formaterDate, formaterNombre, formaterDateHeure, formaterMontant,
+} from '../format.js';
 import { echapper, afficherErreur, afficherSucces } from '../ui.js';
 import { tableauSante } from '../volaille-commun.js';
 import { resumeDernierControle } from '../croissance-commun.js';
@@ -76,6 +78,9 @@ function afficher(b) {
         <dt>Fin prévue</dt><dd>${formaterDate(b.dateFin)}</dd>
         <dt>Poussins reçus</dt><dd>${formaterNombre(b.nombrePoussins)}
           (${formaterNombre(b.nombreMales)} mâles, ${formaterNombre(b.nombreFemelles)} femelles)</dd>
+        <dt>Prix des poussins</dt><dd>${b.prixPoussins == null
+    ? '<span class="badge badge-sans-prix">Prix à saisir</span> <span class="texte-discret no-print">— cliquez sur « Modifier » pour l’ajouter</span>'
+    : `${formaterMontant(b.prixPoussins)} <span class="texte-discret">(${formaterMontant(b.prixParPoussin)} par poussin)</span>`}</dd>
         <dt>Créée le</dt><dd>${formaterDateHeure(b.creeLe)}</dd>
         ${b.modifieLe ? `<dt>Dernière modification</dt><dd>${formaterDateHeure(b.modifieLe)}</dd>` : ''}
       </dl>
@@ -122,9 +127,8 @@ function afficher(b) {
 
   api.get(`/bandes/${b.id}/charges`)
     .then((etat) => {
-      document.getElementById('resume-charges').innerHTML = etat.resume.nombre
-        ? `${tuilesCharges(etat.resume)}${tableauParType(etat.resume)}`
-        : '<p class="texte-discret">Aucune charge déclarée pour cette bande.</p>';
+      document.getElementById('resume-charges').innerHTML = `${tuilesCharges(etat.resume)}${etat.resume.nombre
+        ? tableauParType(etat.resume) : '<p class="texte-discret">Aucune charge déclarée pour cette bande.</p>'}`;
     })
     .catch((e) => afficherErreur(document.getElementById('resume-charges'), e));
 

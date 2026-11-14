@@ -50,7 +50,7 @@ function calculer(b) {
     tauxMortalite: nombrePoussins ? Math.round(((males.morts + femelles.morts) / nombrePoussins) * 10000) / 100 : 0,
   };
   return {
-    ...b, nombrePoussins, dateFin, statut, ageJours, effectifActuel: tot.vivants, sante: { males, femelles, total: tot },
+    ...b, nombrePoussins, prixParPoussin: b.prixPoussins == null ? null : Math.round((b.prixPoussins / nombrePoussins) * 100) / 100, dateFin, statut, ageJours, effectifActuel: tot.vivants, sante: { males, femelles, total: tot },
   };
 }
 
@@ -73,8 +73,10 @@ function validerBandeMock(c, idIgnore) {
   if (!Number.isInteger(c.dureeMois) || c.dureeMois < 1 || c.dureeMois > 12) champs.dureeMois = 'La durée doit être entre 1 et 12.';
   if ((c.nombreMales ?? 0) + (c.nombreFemelles ?? 0) < 1) champs.nombreMales = 'Le total des poussins (mâles + femelles) doit être entre 1 et 1000000.';
   if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
+  if (c.prixPoussins == null) champs.prixPoussins = 'Le prix total des poussins est obligatoire.';
+  if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
   return {
-    nom: c.nom.trim(), dateDebut: c.dateDebut, dureeMois: c.dureeMois, nombreMales: c.nombreMales ?? 0, nombreFemelles: c.nombreFemelles ?? 0,
+    nom: c.nom.trim(), dateDebut: c.dateDebut, dureeMois: c.dureeMois, nombreMales: c.nombreMales ?? 0, nombreFemelles: c.nombreFemelles ?? 0, prixPoussins: c.prixPoussins,
   };
 }
 
@@ -137,7 +139,9 @@ function etatCharges(id) {
     charges,
     resume: {
       total, nombre: charges.length, sansPrix: charges.length - avecPrix.length,
-      coutParPoussin: Math.round((total / bande.nombrePoussins) * 100) / 100,
+      prixPoussins: bande.prixPoussins ?? null,
+      coutTotal: total + (bande.prixPoussins ?? 0),
+      coutParPoussin: Math.round(((total + (bande.prixPoussins ?? 0)) / bande.nombrePoussins) * 100) / 100,
       parType: [...parType.values()].sort((x, y) => y.total - x.total),
     },
   };

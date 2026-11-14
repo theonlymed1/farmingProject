@@ -156,6 +156,8 @@ A Bande object (every endpoint below returns this shape):
   "nombreMales": 2500,
   "nombreFemelles": 2500,
   "nombrePoussins": 5000,
+  "prixPoussins": 32500.5,
+  "prixParPoussin": 6.5,
   "effectifActuel": 4995,
   "sante": {
     "males":    { "recus": 2500, "sains": 2480, "malades": 17, "morts": 3, "vivants": 2497, "tauxMortalite": 0.12 },
@@ -175,13 +177,16 @@ A Bande object (every endpoint below returns this shape):
 | `statut` | `a_venir` (not started) · `en_cours` (green) · `terminee` (red: today is after `dateFin`) |
 | `ageJours` | Day 1 = `dateDebut` (negative before it starts) |
 | `nombrePoussins` | `nombreMales` + `nombreFemelles` (computed, phase 3) |
+| `prixPoussins` | Total paid for the chicks, DH (migration 008). `null` for Bandes created before it was asked |
+| `prixParPoussin` | `prixPoussins` ÷ `nombrePoussins`, or `null` |
 | `effectifActuel` | Birds alive = received − dead (phase 3) |
 | `sante` | Per sex and total: received, healthy, sick, dead, alive, mortality % (phase 3) |
 
 Validation (400 `VALIDATION`, `details` per field):
 `nom` 1–60 characters, unique (case and spaces ignored → 409 `CONFLIT` on `nom`) ·
 `dateDebut` real date `YYYY-MM-DD`, 2000–2100 · `dureeMois` integer 1–12, default 4 ·
-`nombreMales`, `nombreFemelles` integers ≥ 0, total 1–1 000 000 (phase 3; before: `nombrePoussins`).
+`nombreMales`, `nombreFemelles` integers ≥ 0, total 1–1 000 000 (phase 3; before: `nombrePoussins`) ·
+`prixPoussins` required, ≥ 0 DH, 2 decimals, may be sent as `"32 500,50"`.
 Editing a Bande is refused (409 `CONFLIT`) if the new numbers or start date no longer fit its health declarations.
 
 ### GET /bandes
@@ -190,7 +195,7 @@ All Bandes, newest start date first. Response 200: `{ "data": [ Bande, … ] }`.
 
 ### POST /bandes
 
-Body: `{ "nom": "…", "dateDebut": "2026-11-14", "dureeMois": 4, "nombreMales": 2500, "nombreFemelles": 2500 }`.
+Body: `{ "nom": "…", "dateDebut": "2026-11-14", "dureeMois": 4, "nombreMales": 2500, "nombreFemelles": 2500, "prixPoussins": 32500.5 }`.
 Response 201: `{ "data": Bande }`.
 Historique: yes — "Bande « … » créée : 5 000 poussins, début le 14/11/2026, durée 4 mois".
 
@@ -347,7 +352,8 @@ Every response below returns the same shape:
     "bande": { "…": "Bande object" },
     "charges": [ "…newest first…" ],
     "resume": {
-      "total": 18500, "nombre": 3, "sansPrix": 0, "coutParPoussin": 3.7,
+      "total": 18500, "nombre": 3, "sansPrix": 0,
+      "prixPoussins": 32500.5, "coutTotal": 51000.5, "coutParPoussin": 10.2,
       "parType": [ { "type": "Aliment", "nombre": 2, "total": 18000, "sansPrix": 0 } ]
     }
   }
@@ -377,3 +383,6 @@ Values typed in earlier charges, **all Bandes**, most used first:
 ```
 
 With `vendeur`: `types` lists that seller's types first, `produits` only that seller's products.
+
+`resume.total` = charges with a price. `resume.coutTotal` = `prixPoussins` (0 if unknown) + `total`.
+`resume.coutParPoussin` = `coutTotal` ÷ chicks received.
