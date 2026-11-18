@@ -643,3 +643,36 @@ also has `quantiteTexte`. The price field of a specific charge is labelled with 
 with `charge`. History: "Construction — charge générale modifiée (Béton) : quantité 30kg → 35 m³ ; total … → …".
 On screen each charge has a "⋯" menu: Imprimer (one-charge sheet), Modifier, Supprimer (password).
 Static files are now served with `Cache-Control: no-cache`, so an update is used without Ctrl+F5.
+
+## 0.14 — Véhicules : vidange et documents
+
+Migration 016: `charge_vehicule.categorie` = `charge` (as before), `vidange`, or one of the 4 documents
+`visite`, `vignette`, `assurance`, `carte_grise`; columns `kilometrage`, `intervalle_km` (vidange) and `duree_mois`
+(documents). Everything still counts in the cost of the Bande. A document may cost 0 DH.
+
+- `POST /bandes/:bandeId/vehicules/:id/charges` with `"vidange": true` also needs `kilometrage` (current mileage,
+  "115 000 km" accepted) and `intervalleKm` (10 000 by default). Next vidange = kilometrage + intervalleKm.
+- `POST /bandes/:bandeId/vehicules/:id/documents` `{ "document", "date", "dureeMois" (12 by default, 120 for the
+  carte grise), "montant" ≥ 0, "description"? }` → 201 + `charge`. Expiry = date + dureeMois (PostgreSQL month
+  arithmetic: 31/01 + 1 month = 28/02). History: "Document du véhicule … : Assurance, le …, valable 1 an (expire le …)".
+
+A car now also has:
+
+```json
+"vidange": { "date": "2026-11-18", "kilometrage": 124800, "intervalleKm": 8000, "prochaineKm": 132800 },
+"documents": { "visite": { …charge, "dureeMois": 12, "expireLe": "2026-10-14", "joursRestants": -35, "statut": "expire" },
+               "vignette": { … }, "assurance": { … }, "carte_grise": null },
+"alertes": [ { "document": "visite", "libelle": "Visite technique", "statut": "expire", "expireLe": "…", "joursRestants": -35 } ]
+```
+
+`documents` = the latest of each kind (by date); `statut` = `valide`, `bientot` (≤ 30 days left) or `expire`.
+Charges carry `categorie`, plus `kilometrage`/`intervalleKm`/`prochaineKm` (vidange) or
+`dureeMois`/`expireLe`/`joursRestants`/`statut` (documents).
+
+### 0.14.1 — modifier une charge de véhicule
+
+`PUT /bandes/:bandeId/vehicules/:id/charges/:chargeId` — same body as when it was declared: a charge or vidange
+(`"vidange": true/false`, so one can become the other), or a document (`date`, `dureeMois`, `montant`,
+`description`; its kind can't change). Answers like POST, with `charge`. History lists the changes
+("kilométrage 115 000 km → 116 000 km ; validité 1 an → 6 mois"). On screen every charge has a "⋯" menu
+(Modifier / Supprimer) in "Charges des véhicules" and in the car's sheet.

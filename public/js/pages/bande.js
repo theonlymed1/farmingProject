@@ -175,6 +175,9 @@ function afficher(b) {
         ? '<p class="texte-discret">Aucun véhicule pour cette bande.</p>'
         : `<dl class="liste-cles">
             <dt>Véhicules</dt><dd>${formaterNombre(resume.nombre)} — ${vehicules.map((v) => `${echapper(v.nom)} (${echapper(v.matricule)})`).join(', ')}</dd>
+            ${vehicules.some((v) => v.alertes?.length) ? `<dt>Documents</dt><dd>${vehicules.flatMap((v) => (v.alertes ?? []).map((a) => `
+              <span class="badge badge-doc-${a.statut}">${echapper(v.nom)} — ${echapper(a.libelle)} : ${a.statut === 'expire'
+    ? 'expiré' : `expire dans ${a.joursRestants} j`}</span>`)).join(' ')}</dd>` : ''}
             <dt>Charges déclarées</dt><dd>${formaterNombre(resume.nombreCharges)}</dd>
             <dt>Coût pour la bande</dt><dd><strong>${formaterMontant(resume.total)}</strong></dd>
           </dl>`;

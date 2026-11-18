@@ -203,12 +203,46 @@ const ecrireChargesMock = (l) => sessionStorage.setItem('mock-charges', JSON.str
 // --- Simulated cars (same rules as server/modules/vehicules) ---------------------------------
 const lireVehiculesMock = () => JSON.parse(sessionStorage.getItem('mock-vehicules') ?? '[]');
 const ecrireVehiculesMock = (l) => sessionStorage.setItem('mock-vehicules', JSON.stringify(l));
+const DOCUMENTS_MOCK = {
+  visite: { libelle: 'Visite technique', dureeMois: 12 },
+  vignette: { libelle: 'Vignette', dureeMois: 12 },
+  assurance: { libelle: 'Assurance', dureeMois: 12 },
+  carte_grise: { libelle: 'Carte grise', dureeMois: 120 },
+};
+function ajouterMoisMock(iso, mois) {
+  const [a, m, j] = iso.split('-').map(Number);
+  const fin = new Date(Date.UTC(a, m - 1 + mois + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(a, m - 1 + mois, Math.min(j, fin))).toISOString().slice(0, 10);
+}
+function chargeVehiculeMock(c) {
+  const x = { categorie: 'charge', ...c };
+  if (x.categorie === 'vidange') x.prochaineKm = x.kilometrage + x.intervalleKm;
+  if (DOCUMENTS_MOCK[x.categorie]) {
+    x.expireLe = ajouterMoisMock(x.date, x.dureeMois);
+    x.joursRestants = Math.round((Date.parse(x.expireLe) - Date.parse(aujourdhuiMock())) / 864e5);
+    x.statut = x.joursRestants < 0 ? 'expire' : x.joursRestants <= 30 ? 'bientot' : 'valide';
+  }
+  return x;
+}
 function etatVehicules(id) {
   const vehicules = lireVehiculesMock().filter((v) => v.bandeId === Number(id))
     .sort((a, b) => a.nom.localeCompare(b.nom, 'fr') || a.id - b.id)
     .map((v) => {
-      const charges = [...v.charges].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
-      return { ...v, charges, nombreCharges: charges.length, totalCharges: arr(charges.reduce((t, c) => t + c.montant, 0)) };
+      const charges = v.charges.map(chargeVehiculeMock).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+      const recent = (cat) => charges.find((c) => c.categorie === cat) ?? null;
+      const vid = recent('vidange');
+      const documents = Object.fromEntries(Object.keys(DOCUMENTS_MOCK).map((cat) => [cat, recent(cat)]));
+      return {
+        ...v,
+        charges,
+        nombreCharges: charges.length,
+        totalCharges: arr(charges.reduce((t, c) => t + c.montant, 0)),
+        vidange: vid && { date: vid.date, kilometrage: vid.kilometrage, intervalleKm: vid.intervalleKm, prochaineKm: vid.prochaineKm },
+        documents,
+        alertes: Object.entries(documents).filter(([, d]) => d && d.statut !== 'valide').map(([cat, d]) => ({
+          document: cat, libelle: DOCUMENTS_MOCK[cat].libelle, statut: d.statut, expireLe: d.expireLe, joursRestants: d.joursRestants,
+        })),
+      };
     });
   return {
     bande: calculer(trouverBande(id)),
@@ -464,14 +498,72 @@ const routes = [
       const l = lireVehiculesMock();
       const v = l.find((x) => x.id === Number(vid));
       if (!v) throw new ErreurApi(404, 'INTROUVABLE', 'Ce véhicule n’existe pas ou a été supprimé.');
+      if (corps.vidange) {
+        if (!Number.isInteger(corps.kilometrage)) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', { kilometrage: 'Le kilométrage actuel est obligatoire.' });
+        if (!(corps.intervalleKm > 0)) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', { intervalleKm: 'La distance avant la prochaine vidange doit être supérieure à 0.' });
+      }
       const charge = {
         id: Math.max(0, ...l.flatMap((x) => x.charges.map((c) => c.id))) + 1,
+        categorie: corps.vidange ? 'vidange' : 'charge',
         libelle: corps.libelle.trim(), date: corps.date, montant: corps.montant,
+        description: corps.description?.trim() || null, creeLe: new Date().toISOString(),
+        ...(corps.vidange ? { kilometrage: corps.kilometrage, intervalleKm: corps.intervalleKm ?? 10000 } : {}),
+      };
+      v.charges.push(charge);
+      ecrireVehiculesMock(l);
+      return { ...etatVehicules(id), charge: chargeVehiculeMock(charge) };
+    },
+  },
+  {
+    methode: 'POST',
+    motif: /^\/bandes\/(\d+)\/vehicules\/(\d+)\/documents$/,
+    reponse: ({ params: [id, vid], corps }) => {
+      exigerConnexion();
+      const doc = DOCUMENTS_MOCK[corps.document];
+      const champs = {};
+      if (!doc) champs.document = 'Choisissez le document.';
+      if (!corps.date) champs.date = 'La date est obligatoire (format jj/mm/aaaa).';
+      if (corps.montant == null || corps.montant < 0) champs.montant = 'Le montant est obligatoire.';
+      if (!(Number.isInteger(corps.dureeMois) && corps.dureeMois > 0)) champs.dureeMois = 'La durée doit être un nombre entier.';
+      if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
+      const l = lireVehiculesMock();
+      const v = l.find((x) => x.id === Number(vid));
+      const charge = {
+        id: Math.max(0, ...l.flatMap((x) => x.charges.map((c) => c.id))) + 1,
+        categorie: corps.document, libelle: doc.libelle, date: corps.date, montant: corps.montant, dureeMois: corps.dureeMois,
         description: corps.description?.trim() || null, creeLe: new Date().toISOString(),
       };
       v.charges.push(charge);
       ecrireVehiculesMock(l);
-      return { ...etatVehicules(id), charge };
+      return { ...etatVehicules(id), charge: chargeVehiculeMock(charge) };
+    },
+  },
+  {
+    methode: 'PUT',
+    motif: /^\/bandes\/(\d+)\/vehicules\/(\d+)\/charges\/(\d+)$/,
+    reponse: ({ params: [id, vid, cid], corps }) => {
+      exigerConnexion();
+      const l = lireVehiculesMock();
+      const v = l.find((x) => x.id === Number(vid));
+      const c = v?.charges.find((x) => x.id === Number(cid));
+      if (!c) throw new ErreurApi(404, 'INTROUVABLE', 'Cette charge n’existe pas ou a été supprimée.');
+      const doc = DOCUMENTS_MOCK[c.categorie];
+      const champs = {};
+      if (!corps.date) champs.date = 'La date est obligatoire (format jj/mm/aaaa).';
+      if (corps.montant == null || corps.montant < 0 || (!doc && corps.montant === 0)) champs.montant = 'Le montant est obligatoire.';
+      if (!doc && !corps.libelle?.trim()) champs.libelle = 'Le nom de la charge est obligatoire.';
+      if (!doc && corps.vidange && !Number.isInteger(corps.kilometrage)) champs.kilometrage = 'Le kilométrage actuel est obligatoire.';
+      if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
+      Object.assign(c, { date: corps.date, montant: corps.montant, description: corps.description?.trim() || null });
+      if (doc) c.dureeMois = corps.dureeMois;
+      else {
+        c.libelle = corps.libelle.trim();
+        c.categorie = corps.vidange ? 'vidange' : 'charge';
+        if (corps.vidange) Object.assign(c, { kilometrage: corps.kilometrage, intervalleKm: corps.intervalleKm ?? 10000 });
+        else { delete c.kilometrage; delete c.intervalleKm; }
+      }
+      ecrireVehiculesMock(l);
+      return { ...etatVehicules(id), charge: chargeVehiculeMock(c) };
     },
   },
   {

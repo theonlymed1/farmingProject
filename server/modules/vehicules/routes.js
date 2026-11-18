@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { erreurs } from '../../lib/erreurs.js';
 import { idParam } from '../../lib/validation.js';
 import {
-  lireVehicules, ajouterVehicule, declarerCharge, supprimerCharge, supprimerVehicule,
+  lireVehicules, ajouterVehicule, declarerCharge, declarerDocument, modifierCharge, supprimerCharge, supprimerVehicule,
 } from './service.js';
 
 const router = Router({ mergeParams: true });
@@ -30,9 +30,21 @@ router.delete('/:id', async (req, res) => {
   res.json({ data: await supprimerVehicule(bandeId(req), vehiculeId(req), req.body?.motDePasse, req.auth.utilisateurId) });
 });
 
-// { "libelle": "Vidange", "date": "2026-11-18", "montant": 450, "description": "" }
+// { "libelle": "Pneus", "date": "2026-11-18", "montant": 450, "description": "" }
+// vidange: { "vidange": true, "libelle": "Vidange", "date", "montant", "kilometrage": 115000, "intervalleKm": 10000 }
 router.post('/:id/charges', async (req, res) => {
   res.status(201).json({ data: await declarerCharge(bandeId(req), vehiculeId(req), req.body) });
+});
+
+// { "document": "assurance", "date": "2026-11-18", "dureeMois": 12, "montant": 3500, "description": "" }
+router.post('/:id/documents', async (req, res) => {
+  res.status(201).json({ data: await declarerDocument(bandeId(req), vehiculeId(req), req.body) });
+});
+
+// Same body as when declaring (a charge / vidange, or a document whose kind can't change).
+router.put('/:id/charges/:chargeId', async (req, res) => {
+  const chargeId = id(req, 'chargeId', 'Cette charge n’existe pas ou a été supprimée.');
+  res.json({ data: await modifierCharge(bandeId(req), vehiculeId(req), chargeId, req.body) });
 });
 
 router.delete('/:id/charges/:chargeId', async (req, res) => {

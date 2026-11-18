@@ -126,6 +126,8 @@ const LIBELLES = {
   description: 'Description', age: 'Âge', cin: 'CIN', avanceHebdo: 'Avance / semaine (DH)', montant: 'Montant (DH)', employe: 'Employé', vehicule: 'Véhicule', libelle: 'Charge', modele: 'Modèle', matricule: 'Matricule',
   nombreCharges: 'Nombre de charges', totalCharges: 'Total des charges (DH)',
   prixUnitaire: 'Prix par unité (DH)', montantTotal: 'Montant total (DH)', quantiteTexte: 'Quantité',
+  categorie: 'Catégorie', kilometrage: 'Kilométrage (km)', intervalleKm: 'Prochaine vidange dans (km)',
+  prochaineKm: 'Prochaine vidange à (km)', dureeMois: 'Durée de validité (mois)', expireLe: 'Expire le',
   salaireJournalier: 'Salaire / jour (DH)', dateDepart: 'Date de départ', joursTravailles: 'Jours travaillés',
   joursRepos: 'Jours de repos', joursPeriode: 'Jours de la période', semaines: 'Semaines', totalAvances: 'Avances (DH)',
   salaireTotal: 'Salaire total (DH)', solde: 'Solde (DH)', cout: 'Coût (DH)', jusquAu: 'Jusqu’au',
@@ -133,7 +135,7 @@ const LIBELLES = {
   poidsTotalKg: 'Poids total (kg)', poidsMoyenKg: 'Poids par oiseau (kg)', prixParOiseau: 'Prix par oiseau (DH)',
   prixParKg: 'Prix au kg (DH)',
 };
-const CACHES = new Set(['id', 'creeLe', 'modifieLe', 'bandeId']);
+const CACHES = new Set(['id', 'creeLe', 'modifieLe', 'bandeId', 'joursRestants', 'statut']);
 
 /** { a: 1, compte: { b: 2 } } → [['a', 1], ['b', 2]] (one level of nesting, technical keys hidden). */
 function aplatir(objet, resultat = new Map()) {
@@ -147,6 +149,7 @@ function aplatir(objet, resultat = new Map()) {
 
 const VALEURS = {
   particulier: 'Particulier', societe: 'Société', grosse: 'Charge générale', petite: 'Charge spécifique',
+  charge: 'Charge', vidange: 'Vidange', visite: 'Visite technique', vignette: 'Vignette', assurance: 'Assurance', carte_grise: 'Carte grise',
 };
 
 function texteValeur(v) {
