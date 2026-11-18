@@ -24,6 +24,7 @@ const SECTIONS = {
   ventes: 'Ventes',
   employes: 'Employés',
   vehicules: 'Véhicules',
+  construction: 'Construction',
   parametres: 'Paramètres',
 };
 const ACTIONS = {
@@ -124,6 +125,7 @@ const LIBELLES = {
   produit: 'Produit / service', quantite: 'Quantité', unite: 'Unité', prixTotal: 'Prix total (DH)',
   description: 'Description', age: 'Âge', cin: 'CIN', avanceHebdo: 'Avance / semaine (DH)', montant: 'Montant (DH)', employe: 'Employé', vehicule: 'Véhicule', libelle: 'Charge', modele: 'Modèle', matricule: 'Matricule',
   nombreCharges: 'Nombre de charges', totalCharges: 'Total des charges (DH)',
+  prixUnitaire: 'Prix par unité (DH)', montantTotal: 'Montant total (DH)', quantiteTexte: 'Quantité',
   salaireJournalier: 'Salaire / jour (DH)', dateDepart: 'Date de départ', joursTravailles: 'Jours travaillés',
   joursRepos: 'Jours de repos', joursPeriode: 'Jours de la période', semaines: 'Semaines', totalAvances: 'Avances (DH)',
   salaireTotal: 'Salaire total (DH)', solde: 'Solde (DH)', cout: 'Coût (DH)', jusquAu: 'Jusqu’au',
@@ -143,7 +145,9 @@ function aplatir(objet, resultat = new Map()) {
   return resultat;
 }
 
-const VALEURS = { particulier: 'Particulier', societe: 'Société' };
+const VALEURS = {
+  particulier: 'Particulier', societe: 'Société', grosse: 'Charge générale', petite: 'Charge spécifique',
+};
 
 function texteValeur(v) {
   if (v === null || v === undefined || v === '') return '—';

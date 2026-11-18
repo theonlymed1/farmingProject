@@ -53,6 +53,7 @@ export function monterLayout({ titre, bande = null }) {
       <ul>${lien({ page: 'bandes', libelle: 'Les bandes', disponible: true }, bande ? null : pageActive)}</ul>
       ${menuBande}
       <ul class="menu-bas">
+        ${lien({ page: 'construction', libelle: 'Construction', disponible: true }, pageActive)}
         ${lien({ page: 'historique-general', libelle: 'Historique général', disponible: true, href: '/pages/historique.html' }, pageActive)}
         ${lien({ page: 'parametres', libelle: 'Paramètres', disponible: true }, pageActive)}
       </ul>

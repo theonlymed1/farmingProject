@@ -13,6 +13,7 @@ import { routesCharges, routesSuggestions } from './modules/charges/routes.js';
 import employesRoutes from './modules/employes/routes.js';
 import { routesVentes, routesClients } from './modules/ventes/routes.js';
 import vehiculesRoutes from './modules/vehicules/routes.js';
+import constructionRoutes from './modules/construction/routes.js';
 import historiqueRoutes from './modules/historique/routes.js';
 
 export function creerApp() {
@@ -37,6 +38,7 @@ export function creerApp() {
   api.use('/bandes/:bandeId/vehicules', vehiculesRoutes);
   api.use('/charges', routesSuggestions);
   api.use('/ventes', routesClients);
+  api.use('/construction', constructionRoutes);
   api.use('/bandes', bandesRoutes);
   api.use('/historique', historiqueRoutes);
   // New modules are mounted here, one line each, as phases land:
@@ -48,7 +50,12 @@ export function creerApp() {
   // Pages need a session (except the login page); CSS/JS files stay public.
   app.use(protegerPages);
   // `extensions` lets /pages/bandes serve pages/bandes.html.
-  app.use(express.static(config.publicDir, { extensions: ['html'] }));
+  // no-cache: the browser always checks with the server (cheap on localhost), so after an update
+  // the new pages and scripts are used at once, without Ctrl+F5.
+  app.use(express.static(config.publicDir, {
+    extensions: ['html'],
+    setHeaders: (res) => { if (!res.get('Cache-Control')) res.set('Cache-Control', 'no-cache'); },
+  }));
 
   app.use(gestionnaireErreurs);
   return app;

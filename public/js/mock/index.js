@@ -226,6 +226,23 @@ function exigerMotDePasseMock(corps) {
   }
 }
 
+// --- Simulated construction charges (server/modules/construction) -----------------------------
+const lireConstructionMock = () => JSON.parse(sessionStorage.getItem('mock-construction') ?? '[]');
+function etatConstruction() {
+  const charges = lireConstructionMock().sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  const somme = (l) => arr(l.reduce((t, c) => t + c.montantTotal, 0));
+  const grosses = charges.filter((c) => c.type === 'grosse');
+  const petites = charges.filter((c) => c.type === 'petite');
+  return {
+    charges,
+    resume: {
+      nombre: charges.length, total: somme(charges),
+      grosses: { nombre: grosses.length, total: somme(grosses) },
+      petites: { nombre: petites.length, total: somme(petites) },
+    },
+  };
+}
+
 function etatCharges(id) {
   const bande = calculer(trouverBande(id));
   const charges = lireChargesMock().filter((c) => c.bandeId === Number(id))
@@ -321,6 +338,80 @@ function majEmployeMock(eid, f) {
 }
 
 const routes = [
+  {
+    methode: 'GET',
+    motif: /^\/construction$/,
+    reponse: () => { exigerConnexion(); return etatConstruction(); },
+  },
+  {
+    methode: 'POST',
+    motif: /^\/construction\/charges$/,
+    reponse: ({ corps }) => {
+      exigerConnexion();
+      const petite = corps.type === 'petite';
+      const champs = {};
+      if (!corps.nom?.trim()) champs.nom = 'Le nom de la charge est obligatoire.';
+      if (!corps.date) champs.date = 'La date est obligatoire (format jj/mm/aaaa).';
+      if (petite && !(corps.quantite > 0)) champs.quantite = corps.quantite == null ? 'La quantité est obligatoire.' : 'La quantité doit être supérieure à 0.';
+      if (!petite && !String(corps.quantite ?? '').trim()) champs.quantite = 'La quantité est obligatoire.';
+      if (petite && !corps.unite?.trim()) champs.unite = 'L’unité est obligatoire.';
+      if (petite && !(corps.prixUnitaire > 0)) champs.prixUnitaire = corps.prixUnitaire == null ? 'Le prix est obligatoire.' : 'Le prix doit être supérieur à 0.';
+      if (!petite && !(corps.montantTotal > 0)) champs.montantTotal = corps.montantTotal == null ? 'Le montant total est obligatoire.' : 'Le montant total doit être supérieur à 0.';
+      if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
+      const l = lireConstructionMock();
+      const charge = {
+        id: (l.at(-1)?.id ?? 0) + 1, type: corps.type, date: corps.date, nom: corps.nom.trim(),
+        unite: petite ? corps.unite.trim() : null,
+        quantite: petite ? corps.quantite : null, quantiteTexte: petite ? null : String(corps.quantite).trim(),
+        prixUnitaire: petite ? corps.prixUnitaire : null,
+        montantTotal: petite
+          ? Math.round((Math.round(corps.quantite * 1000) * Math.round(corps.prixUnitaire * 100)) / 1000) / 100
+          : corps.montantTotal,
+        description: corps.description?.trim() || null, creeLe: new Date().toISOString(),
+      };
+      l.push(charge);
+      sessionStorage.setItem('mock-construction', JSON.stringify(l));
+      return { ...etatConstruction(), charge };
+    },
+  },
+  {
+    methode: 'PUT',
+    motif: /^\/construction\/charges\/(\d+)$/,
+    reponse: ({ params: [cid], corps }) => {
+      exigerConnexion();
+      const l = lireConstructionMock();
+      const ancienne = l.find((c) => c.id === Number(cid));
+      if (!ancienne) throw new ErreurApi(404, 'INTROUVABLE', 'Cette charge n’existe pas ou a été supprimée.');
+      const petite = ancienne.type === 'petite';
+      const champs = {};
+      if (!corps.nom?.trim()) champs.nom = 'Le nom de la charge est obligatoire.';
+      if (petite && !(corps.quantite > 0)) champs.quantite = 'La quantité doit être supérieure à 0.';
+      if (!petite && !String(corps.quantite ?? '').trim()) champs.quantite = 'La quantité est obligatoire.';
+      if (petite && !corps.unite?.trim()) champs.unite = 'L’unité est obligatoire.';
+      if (petite && !(corps.prixUnitaire > 0)) champs.prixUnitaire = 'Le prix est obligatoire.';
+      if (!petite && !(corps.montantTotal > 0)) champs.montantTotal = 'Le montant total est obligatoire.';
+      if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
+      Object.assign(ancienne, {
+        date: corps.date, nom: corps.nom.trim(), description: corps.description?.trim() || null,
+        ...(petite ? {
+          unite: corps.unite.trim(), quantite: corps.quantite, prixUnitaire: corps.prixUnitaire,
+          montantTotal: Math.round((Math.round(corps.quantite * 1000) * Math.round(corps.prixUnitaire * 100)) / 1000) / 100,
+        } : { quantiteTexte: String(corps.quantite).trim(), montantTotal: corps.montantTotal }),
+      });
+      sessionStorage.setItem('mock-construction', JSON.stringify(l));
+      return { ...etatConstruction(), charge: ancienne };
+    },
+  },
+  {
+    methode: 'DELETE',
+    motif: /^\/construction\/charges\/(\d+)$/,
+    reponse: ({ params: [cid], corps }) => {
+      exigerConnexion();
+      exigerMotDePasseMock(corps);
+      sessionStorage.setItem('mock-construction', JSON.stringify(lireConstructionMock().filter((c) => c.id !== Number(cid))));
+      return etatConstruction();
+    },
+  },
   {
     methode: 'GET',
     motif: /^\/bandes\/(\d+)\/vehicules$/,

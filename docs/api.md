@@ -606,3 +606,40 @@ with a car:
 | `DELETE /bandes/:bandeId/vehicules/:id` | `{ "motDePasse" }` — the car and its charges | "Véhicule supprimé : …, avec 2 charges (1 650,50 DH)" |
 | `POST /bandes/:bandeId/vehicules/:id/charges` | `{ "libelle", "date" (not future), "montant" > 0, "description"? }` → 201 + `charge` | "Charge du véhicule … : Vidange, le 15/11/2026 — 450,00 DH" |
 | `DELETE /bandes/:bandeId/vehicules/:id/charges/:chargeId` | `{ "motDePasse" }` | "Charge supprimée du véhicule … : …" |
+
+## 0.13 — Construction de la nouvelle ferme
+
+Charges of the new farm being built. **No link with the Bandes**: no `bande_id`, never counted in a Bande's
+costs, page `/pages/construction.html` in the bottom menu ("Construction"). Migration 014: table
+`charge_construction`. Two kinds, one list:
+
+| Type | Fields | Total |
+| --- | --- | --- |
+| `grosse` | `nom`, `date`, `quantite` > 0, `montantTotal` > 0, `description`? | entered |
+| `petite` | `nom`, `date`, `unite`, `quantite` > 0, `prixUnitaire` > 0, `description`? | `quantite × prixUnitaire`, calculated by the server, rounded to the centime in whole numbers (2,5 × 3,33 = 8,33) |
+
+`date` defaults to today on screen and can't be in the future. Name and unit keep their first spelling.
+
+| Endpoint | Body | Historique (module `construction`, no Bande) |
+| --- | --- | --- |
+| `GET /construction` | — | no |
+| `POST /construction/charges` | see above, with `"type"` → 201 + `charge` | "Construction — petite charge : Ciment, le 17/11/2026 — 12 sac × 72,50 DH = 870,00 DH" |
+| `DELETE /construction/charges/:id` | `{ "motDePasse" }` | "Construction — grosse charge supprimée : …" |
+
+Response: `{ "data": { "charges": [ { id, type, date, nom, unite, quantite, prixUnitaire, montantTotal, description, creeLe } ],
+"resume": { nombre, total, grosses: { nombre, total }, petites: { nombre, total } } } }`, newest first.
+
+### 0.13.1 — charges générales / spécifiques
+
+On screen `grosse` is now **charge générale** and `petite` **charge spécifique** (the stored `type` values don't
+change). Migration 015: the quantity of a general charge is **free text** (`quantiteTexte`, 1–50 characters,
+e.g. "30 m³", "1 lot"); `quantite` (number) is only for specific charges. Old general charges were converted
+(30.000 → "30", 2.500 → "2,5"). Send the general quantity as text in `quantite`. A charge in the response now
+also has `quantiteTexte`. The price field of a specific charge is labelled with its unit ("Prix par sac").
+
+### 0.13.2 — modifier / imprimer une charge de construction
+
+`PUT /construction/charges/:id` — same body as POST; the kind can't change (`type` ignored). Answers like POST
+with `charge`. History: "Construction — charge générale modifiée (Béton) : quantité 30kg → 35 m³ ; total … → …".
+On screen each charge has a "⋯" menu: Imprimer (one-charge sheet), Modifier, Supprimer (password).
+Static files are now served with `Cache-Control: no-cache`, so an update is used without Ctrl+F5.

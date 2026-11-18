@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Construction — Plateforme avicole</title>
+  <script src="/js/theme.js"></script>
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/print.css" media="print">
+  <script type="module" src="/js/pages/construction.js"></script>
+</head>
+<!-- /pages/construction.html — charges of the new farm being built (no link with the Bandes). -->
+<body data-page="construction">
+  <main id="contenu" class="contenu">
+    <div class="titre-page">
+      <div>
+        <h1>Construction de la nouvelle ferme</h1>
+        <p class="sous-titre">Charges du chantier — séparées des bandes, elles ne comptent dans aucune bande.</p>
+      </div>
+      <div class="actions-page no-print">
+        <button type="button" class="bouton bouton-secondaire" id="bouton-imprimer-page">Imprimer</button>
+        <button type="button" class="bouton" id="bouton-grosse" disabled>+ Charge générale</button>
+        <button type="button" class="bouton" id="bouton-petite" disabled>+ Charge spécifique</button>
+      </div>
+    </div>
+    <div id="message" aria-live="polite"></div>
+    <div id="contenu-construction">Chargement…</div>
+  </main>
+  <!-- Filled only while one charge is being printed (see imprimerCharge in construction.js). -->
+  <div id="zone-recu" class="zone-recu" hidden></div>
+</body>
+</html>
