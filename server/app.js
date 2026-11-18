@@ -12,6 +12,7 @@ import croissanceRoutes from './modules/croissance/routes.js';
 import { routesCharges, routesSuggestions } from './modules/charges/routes.js';
 import employesRoutes from './modules/employes/routes.js';
 import { routesVentes, routesClients } from './modules/ventes/routes.js';
+import vehiculesRoutes from './modules/vehicules/routes.js';
 import historiqueRoutes from './modules/historique/routes.js';
 
 export function creerApp() {
@@ -33,6 +34,7 @@ export function creerApp() {
   api.use('/bandes/:bandeId/charges', routesCharges);
   api.use('/bandes/:bandeId/employes', employesRoutes);
   api.use('/bandes/:bandeId/ventes', routesVentes);
+  api.use('/bandes/:bandeId/vehicules', vehiculesRoutes);
   api.use('/charges', routesSuggestions);
   api.use('/ventes', routesClients);
   api.use('/bandes', bandesRoutes);

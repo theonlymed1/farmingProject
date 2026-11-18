@@ -35,10 +35,15 @@ export function tuilesCharges(resume) {
         <span class="indicateur-valeur">${formaterMontant(resume.employes?.cout ?? 0)}</span>
         <span class="indicateur-detail">avances + soldes des départs</span>
       </div>
+      <div class="indicateur">
+        <span class="indicateur-libelle">Véhicules</span>
+        <span class="indicateur-valeur">${formaterMontant(resume.vehicules?.total ?? 0)}</span>
+        <span class="indicateur-detail">charges des véhicules</span>
+      </div>
       <div class="indicateur indicateur-fort">
         <span class="indicateur-libelle">Coût total de la bande</span>
         <span class="indicateur-valeur">${formaterMontant(resume.coutTotal)}</span>
-        <span class="indicateur-detail">poussins + charges + employés</span>
+        <span class="indicateur-detail">poussins + charges + employés + véhicules</span>
       </div>
       <div class="indicateur ${resume.sansPrix ? 'indicateur-alerte' : ''}">
         <span class="indicateur-libelle">Prix à saisir</span>

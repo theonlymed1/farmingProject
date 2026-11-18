@@ -34,7 +34,7 @@ export function tuilesVentes(r) {
       <div class="indicateur">
         <span class="indicateur-libelle">Coût total de la bande</span>
         <span class="indicateur-valeur">${formaterMontant(r.coutTotal)}</span>
-        <span class="indicateur-detail">poussins + charges + employés</span>
+        <span class="indicateur-detail">poussins + charges + employés + véhicules</span>
       </div>
       <div class="indicateur ${positif ? 'indicateur-benefice' : 'indicateur-perte'}">
         <span class="indicateur-libelle">Résultat</span>

@@ -26,6 +26,7 @@ const FONCTIONNALITES = [
   ['Charges', 'Achats et services : aliment, gaz, vaccins…', 'charges'],
   ['Ventes', 'Oiseaux vendus aux clients, factures', 'ventes'],
   ['Employés', 'Avances, jours de repos, départ et reçu', 'employes'],
+  ['Véhicules', 'Voitures de travail et leurs charges', 'vehicules'],
   ['Historique', 'Toutes les opérations de la bande', 'historique'],
 ];
 
@@ -122,6 +123,14 @@ function afficher(b) {
       <div id="resume-ventes">Chargement…</div>
     </section>
 
+    <section class="carte" aria-labelledby="titre-vehicules">
+      <div class="titre-section">
+        <h2 id="titre-vehicules">Véhicules</h2>
+        <a class="no-print" href="/pages/vehicules.html?bande=${b.id}">Véhicules →</a>
+      </div>
+      <div id="resume-vehicules">Chargement…</div>
+    </section>
+
     <section class="carte" aria-labelledby="titre-employes">
       <div class="titre-section">
         <h2 id="titre-employes">Employés</h2>
@@ -159,6 +168,18 @@ function afficher(b) {
           </dl>`;
     })
     .catch((e) => afficherErreur(document.getElementById('resume-employes'), e));
+
+  api.get(`/bandes/${b.id}/vehicules`)
+    .then(({ vehicules, resume }) => {
+      document.getElementById('resume-vehicules').innerHTML = !vehicules.length
+        ? '<p class="texte-discret">Aucun véhicule pour cette bande.</p>'
+        : `<dl class="liste-cles">
+            <dt>Véhicules</dt><dd>${formaterNombre(resume.nombre)} — ${vehicules.map((v) => `${echapper(v.nom)} (${echapper(v.matricule)})`).join(', ')}</dd>
+            <dt>Charges déclarées</dt><dd>${formaterNombre(resume.nombreCharges)}</dd>
+            <dt>Coût pour la bande</dt><dd><strong>${formaterMontant(resume.total)}</strong></dd>
+          </dl>`;
+    })
+    .catch((e) => afficherErreur(document.getElementById('resume-vehicules'), e));
 
   api.get(`/bandes/${b.id}/charges`)
     .then((etat) => {

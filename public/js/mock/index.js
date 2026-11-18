@@ -200,6 +200,32 @@ function validerVenteMock(c, bande, ancienne = null) {
 // --- Simulated charges ------------------------------------------------------------------
 const lireChargesMock = () => JSON.parse(sessionStorage.getItem('mock-charges') ?? '[]');
 const ecrireChargesMock = (l) => sessionStorage.setItem('mock-charges', JSON.stringify(l));
+// --- Simulated cars (same rules as server/modules/vehicules) ---------------------------------
+const lireVehiculesMock = () => JSON.parse(sessionStorage.getItem('mock-vehicules') ?? '[]');
+const ecrireVehiculesMock = (l) => sessionStorage.setItem('mock-vehicules', JSON.stringify(l));
+function etatVehicules(id) {
+  const vehicules = lireVehiculesMock().filter((v) => v.bandeId === Number(id))
+    .sort((a, b) => a.nom.localeCompare(b.nom, 'fr') || a.id - b.id)
+    .map((v) => {
+      const charges = [...v.charges].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+      return { ...v, charges, nombreCharges: charges.length, totalCharges: arr(charges.reduce((t, c) => t + c.montant, 0)) };
+    });
+  return {
+    bande: calculer(trouverBande(id)),
+    vehicules,
+    resume: {
+      nombre: vehicules.length,
+      nombreCharges: vehicules.reduce((t, v) => t + v.nombreCharges, 0),
+      total: arr(vehicules.reduce((t, v) => t + v.totalCharges, 0)),
+    },
+  };
+}
+function exigerMotDePasseMock(corps) {
+  if (corps.motDePasse !== MOCK_MOT_DE_PASSE) {
+    throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', { motDePasse: corps.motDePasse ? 'Mot de passe incorrect.' : 'Saisissez votre mot de passe pour confirmer.' });
+  }
+}
+
 function etatCharges(id) {
   const bande = calculer(trouverBande(id));
   const charges = lireChargesMock().filter((c) => c.bandeId === Number(id))
@@ -220,8 +246,9 @@ function etatCharges(id) {
       total, nombre: charges.length, sansPrix: charges.length - avecPrix.length,
       prixPoussins: bande.prixPoussins ?? null,
       employes: resumeEmployesMock(id),
-      coutTotal: total + (bande.prixPoussins ?? 0) + resumeEmployesMock(id).cout,
-      coutParPoussin: Math.round(((total + (bande.prixPoussins ?? 0) + resumeEmployesMock(id).cout) / bande.nombrePoussins) * 100) / 100,
+      vehicules: etatVehicules(id).resume,
+      coutTotal: arr(total + (bande.prixPoussins ?? 0) + resumeEmployesMock(id).cout + etatVehicules(id).resume.total),
+      coutParPoussin: arr((total + (bande.prixPoussins ?? 0) + resumeEmployesMock(id).cout + etatVehicules(id).resume.total) / bande.nombrePoussins),
       parType: [...parType.values()].sort((x, y) => y.total - x.total),
     },
   };
@@ -294,6 +321,81 @@ function majEmployeMock(eid, f) {
 }
 
 const routes = [
+  {
+    methode: 'GET',
+    motif: /^\/bandes\/(\d+)\/vehicules$/,
+    reponse: ({ params: [id] }) => { exigerConnexion(); return etatVehicules(id); },
+  },
+  {
+    methode: 'POST',
+    motif: /^\/bandes\/(\d+)\/vehicules$/,
+    reponse: ({ params: [id], corps }) => {
+      exigerConnexion();
+      const champs = {};
+      if (!corps.nom?.trim()) champs.nom = 'Le nom du véhicule est obligatoire.';
+      if (!corps.modele?.trim()) champs.modele = 'Le modèle est obligatoire.';
+      if (!corps.matricule?.trim()) champs.matricule = 'Le matricule est obligatoire.';
+      if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
+      const l = lireVehiculesMock();
+      const cle = (m) => m.replace(/[\s|/-]/g, '').toUpperCase();
+      if (l.some((v) => v.bandeId === Number(id) && cle(v.matricule) === cle(corps.matricule))) {
+        throw new ErreurApi(409, 'CONFLIT', 'Un véhicule de cette bande a déjà ce matricule.', { matricule: 'Un véhicule de cette bande a déjà ce matricule.' });
+      }
+      l.push({
+        id: (l.at(-1)?.id ?? 0) + 1, bandeId: Number(id), nom: corps.nom.trim(), modele: corps.modele.trim(),
+        matricule: corps.matricule.trim().replace(/\s+/g, ' ').toUpperCase(), creeLe: new Date().toISOString(), charges: [],
+      });
+      ecrireVehiculesMock(l);
+      return etatVehicules(id);
+    },
+  },
+  {
+    methode: 'DELETE',
+    motif: /^\/bandes\/(\d+)\/vehicules\/(\d+)$/,
+    reponse: ({ params: [id, vid], corps }) => {
+      exigerConnexion();
+      exigerMotDePasseMock(corps);
+      ecrireVehiculesMock(lireVehiculesMock().filter((v) => v.id !== Number(vid)));
+      return etatVehicules(id);
+    },
+  },
+  {
+    methode: 'POST',
+    motif: /^\/bandes\/(\d+)\/vehicules\/(\d+)\/charges$/,
+    reponse: ({ params: [id, vid], corps }) => {
+      exigerConnexion();
+      const champs = {};
+      if (!corps.libelle?.trim()) champs.libelle = 'Le nom de la charge est obligatoire.';
+      if (!corps.date) champs.date = 'La date est obligatoire (format jj/mm/aaaa).';
+      if (corps.montant == null) champs.montant = 'Le montant est obligatoire.';
+      else if (!(corps.montant > 0)) champs.montant = 'Le montant doit être supérieur à 0.';
+      if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
+      const l = lireVehiculesMock();
+      const v = l.find((x) => x.id === Number(vid));
+      if (!v) throw new ErreurApi(404, 'INTROUVABLE', 'Ce véhicule n’existe pas ou a été supprimé.');
+      const charge = {
+        id: Math.max(0, ...l.flatMap((x) => x.charges.map((c) => c.id))) + 1,
+        libelle: corps.libelle.trim(), date: corps.date, montant: corps.montant,
+        description: corps.description?.trim() || null, creeLe: new Date().toISOString(),
+      };
+      v.charges.push(charge);
+      ecrireVehiculesMock(l);
+      return { ...etatVehicules(id), charge };
+    },
+  },
+  {
+    methode: 'DELETE',
+    motif: /^\/bandes\/(\d+)\/vehicules\/(\d+)\/charges\/(\d+)$/,
+    reponse: ({ params: [id, vid, cid], corps }) => {
+      exigerConnexion();
+      exigerMotDePasseMock(corps);
+      const l = lireVehiculesMock();
+      const v = l.find((x) => x.id === Number(vid));
+      if (v) v.charges = v.charges.filter((c) => c.id !== Number(cid));
+      ecrireVehiculesMock(l);
+      return etatVehicules(id);
+    },
+  },
   {
     methode: 'GET',
     motif: /^\/ventes\/clients$/,

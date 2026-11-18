@@ -8,6 +8,7 @@ import {
 import { lireBandeClient } from '../bandes/service.js';
 import { exigerMotDePasse } from '../auth/service.js';
 import { coutEmployes } from '../employes/service.js';
+import { coutVehicules } from '../vehicules/service.js';
 
 const quantiteFr = (q, u) => (q == null ? null : `${nombreFr(q)}${u ? ` ${u}` : ''}`);
 
@@ -27,7 +28,7 @@ function versJson(r) {
   };
 }
 
-function resume(charges, bande, employes) {
+function resume(charges, bande, employes, vehicules) {
   const avecPrix = charges.filter((c) => c.prixTotal != null);
   const total = Math.round(avecPrix.reduce((t, c) => t + c.prixTotal, 0) * 100) / 100;
   const parType = new Map();
@@ -39,15 +40,17 @@ function resume(charges, bande, employes) {
     if (c.prixTotal == null) t.sansPrix += 1;
     else t.total = Math.round((t.total + c.prixTotal) * 100) / 100;
   }
-  // Total cost of the Bande = chicks bought + charges with a price + workers (advances, final balances).
+  // Total cost of the Bande = chicks bought + charges with a price + workers (advances, final balances)
+  // + charges of the cars.
   const prixPoussins = bande.prixPoussins ?? 0;
-  const coutTotal = Math.round((total + prixPoussins + employes.cout) * 100) / 100;
+  const coutTotal = Math.round((total + prixPoussins + employes.cout + vehicules.total) * 100) / 100;
   return {
     total,
     nombre: charges.length,
     sansPrix: charges.length - avecPrix.length,
     prixPoussins: bande.prixPoussins,
     employes,
+    vehicules,
     coutTotal,
     coutParPoussin: bande.nombrePoussins ? Math.round((coutTotal / bande.nombrePoussins) * 100) / 100 : 0,
     parType: [...parType.values()].sort((a, b) => b.total - a.total || a.type.localeCompare(b.type, 'fr')),
@@ -60,10 +63,12 @@ async function etat(client, bandeId) {
     'SELECT * FROM charge WHERE bande_id = $1 ORDER BY date_charge DESC, id DESC', [bandeId],
   );
   const charges = rows.map(versJson);
-  return { bande, charges, resume: resume(charges, bande, await coutEmployes(client, bandeId)) };
+  return {
+    bande, charges, resume: resume(charges, bande, await coutEmployes(client, bandeId), await coutVehicules(client, bandeId)),
+  };
 }
 
-/** Total cost of a Bande (chicks + charges + workers), for the sales result. */
+/** Total cost of a Bande (chicks + charges + workers + cars), for the sales result. */
 export async function resumeCouts(client, bandeId) {
   return (await etat(client, bandeId)).resume;
 }

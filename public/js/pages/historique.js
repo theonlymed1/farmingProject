@@ -23,6 +23,7 @@ const SECTIONS = {
   charges: 'Charges',
   ventes: 'Ventes',
   employes: 'Employés',
+  vehicules: 'Véhicules',
   parametres: 'Paramètres',
 };
 const ACTIONS = {
@@ -121,7 +122,8 @@ const LIBELLES = {
   provenance: 'Provenance', date: 'Date', males: 'Mâles', femelles: 'Femelles', nonSexes: 'Non sexés', total: 'Total',
   note: 'Remarque', periodeJours: 'Fréquence (jours)', vendeur: 'Vendeur', typeProduit: 'Type de produit',
   produit: 'Produit / service', quantite: 'Quantité', unite: 'Unité', prixTotal: 'Prix total (DH)',
-  description: 'Description', age: 'Âge', cin: 'CIN', avanceHebdo: 'Avance / semaine (DH)', montant: 'Montant (DH)', employe: 'Employé',
+  description: 'Description', age: 'Âge', cin: 'CIN', avanceHebdo: 'Avance / semaine (DH)', montant: 'Montant (DH)', employe: 'Employé', vehicule: 'Véhicule', libelle: 'Charge', modele: 'Modèle', matricule: 'Matricule',
+  nombreCharges: 'Nombre de charges', totalCharges: 'Total des charges (DH)',
   salaireJournalier: 'Salaire / jour (DH)', dateDepart: 'Date de départ', joursTravailles: 'Jours travaillés',
   joursRepos: 'Jours de repos', joursPeriode: 'Jours de la période', semaines: 'Semaines', totalAvances: 'Avances (DH)',
   salaireTotal: 'Salaire total (DH)', solde: 'Solde (DH)', cout: 'Coût (DH)', jusquAu: 'Jusqu’au',

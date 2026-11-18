@@ -581,3 +581,28 @@ reviennent dans le troupeau)".
   `<html data-theme="clair|sombre">` from the choice kept in the browser (`localStorage["avicole-theme"]` =
   `clair`, `sombre` or `auto` = like Windows). `base.css` redefines the color variables for
   `[data-theme="sombre"]`, on screen only: printing always uses the light colors.
+
+## 0.12 — Véhicules
+
+Work cars of a Bande and their charges (oil change, tyres, fuel…). Migration 013: tables `vehicule`
+(`nom`, `modele`, `matricule` — one plate once per Bande, spaces/dashes/case ignored) and `charge_vehicule`.
+The charges of the cars count in the cost of the Bande: the Charges summary has `resume.vehicules =
+{ nombre, nombreCharges, total }` and `coutTotal` = chicks + charges + workers + cars (so the sales
+`resultat` too).
+
+Every endpoint returns `{ "data": { "bande", "vehicules": [ … ], "resume": { nombre, nombreCharges, total } } }`
+with a car:
+
+```json
+{ "id": 1, "nom": "Camion", "modele": "Isuzu NPR", "matricule": "12345-A-6", "creeLe": "…",
+  "nombreCharges": 1, "totalCharges": 450,
+  "charges": [ { "id": 3, "libelle": "Vidange", "date": "2026-11-15", "montant": 450, "description": "huile 15W40", "creeLe": "…" } ] }
+```
+
+| Endpoint | Body | Historique (module `vehicules`) |
+| --- | --- | --- |
+| `GET /bandes/:bandeId/vehicules` | — | no |
+| `POST /bandes/:bandeId/vehicules` | `{ "nom", "modele", "matricule" }` (409 if the plate exists) | "Véhicule ajouté : Camion Isuzu NPR (12345-A-6)" |
+| `DELETE /bandes/:bandeId/vehicules/:id` | `{ "motDePasse" }` — the car and its charges | "Véhicule supprimé : …, avec 2 charges (1 650,50 DH)" |
+| `POST /bandes/:bandeId/vehicules/:id/charges` | `{ "libelle", "date" (not future), "montant" > 0, "description"? }` → 201 + `charge` | "Charge du véhicule … : Vidange, le 15/11/2026 — 450,00 DH" |
+| `DELETE /bandes/:bandeId/vehicules/:id/charges/:chargeId` | `{ "motDePasse" }` | "Charge supprimée du véhicule … : …" |

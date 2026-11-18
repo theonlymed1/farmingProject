@@ -385,3 +385,8 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .facture-note { font-size: 0.85rem; }
 .tableau-ventes .actions-ligne button { display: block; margin: 0 0 var(--e1); }
 .tableau-facture tfoot td, .tableau-facture tfoot th { background: var(--gris-100); font-weight: 700; }
+
+/* --- Véhicules --------------------------------------------------------------------------- */
+.matricule { display: inline-block; padding: 1px var(--e2); border: 1px solid var(--couleur-bordure); border-radius: 4px; font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem; white-space: nowrap; }
+.fiche-vehicule h3 { margin-top: var(--e4); }
+.fiche-vehicule .tableau { width: 100%; }

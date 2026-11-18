@@ -12,6 +12,7 @@ const MENU_BANDE = [
   { page: 'charges', libelle: 'Charges', disponible: true },
   { page: 'ventes', libelle: 'Ventes', disponible: true },
   { page: 'employes', libelle: 'Employés', disponible: true },
+  { page: 'vehicules', libelle: 'Véhicules', disponible: true },
   { page: 'historique', libelle: 'Historique', disponible: true },
 ];
 
