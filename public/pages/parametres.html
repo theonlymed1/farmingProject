@@ -14,6 +14,29 @@
   <main id="contenu" class="contenu">
     <h1>Paramètres</h1>
 
+    <section class="carte formulaire-etroit" aria-labelledby="titre-sauvegarde">
+      <h2 id="titre-sauvegarde">Sauvegarde des données</h2>
+      <p>Une sauvegarde est <strong>un fichier qui contient toutes les données</strong> : bandes, troupeau, croissance,
+        charges, ventes, employés, véhicules, construction et historique. Gardez-la en lieu sûr, <strong>hors de ce PC</strong>
+        (clé USB, autre ordinateur, téléphone…). Si le PC tombe en panne, installez l’application sur un autre PC
+        et restaurez le fichier ici : tout revient.</p>
+      <div id="message-sauvegarde" aria-live="polite"></div>
+      <div id="etat-sauvegarde" class="etat-sauvegarde">Chargement…</div>
+      <div class="actions-sauvegarde">
+        <button type="button" class="bouton" id="bouton-telecharger">Télécharger une sauvegarde</button>
+      </div>
+
+      <h3>Restaurer une sauvegarde</h3>
+      <p class="texte-discret">Remplace <strong>toutes</strong> les données actuelles par celles du fichier. Votre identifiant
+        et votre mot de passe actuels sont conservés.</p>
+      <div class="champ">
+        <label for="fichier-sauvegarde">Fichier de sauvegarde (.avicole)</label>
+        <input id="fichier-sauvegarde" type="file" accept=".avicole">
+        <div id="apercu-fichier" class="aide" aria-live="polite"></div>
+      </div>
+      <button type="button" class="bouton bouton-danger" id="bouton-restaurer" disabled>Restaurer…</button>
+    </section>
+
     <section class="carte formulaire-etroit" aria-labelledby="titre-apparence">
       <h2 id="titre-apparence">Apparence</h2>
       <fieldset class="champ choix" id="choix-theme">

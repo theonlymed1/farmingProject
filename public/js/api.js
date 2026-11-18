@@ -8,7 +8,7 @@
 // Switch without editing code: open any page with ?mode=mock or ?mode=reel.
 // The choice is remembered in this browser until you switch again.
 import { ErreurApi } from './erreurs.js';
-import { repondreMock } from './mock/index.js';
+import { repondreMock, sauvegardeMock, restaurerMock } from './mock/index.js';
 
 const MODE_PAR_DEFAUT = 'reel';
 
@@ -67,7 +67,71 @@ async function requete(methode, chemin, corps) {
   return json?.data ?? null;
 }
 
+function injoignable() {
+  return new ErreurApi(0, 'SERVEUR_INJOIGNABLE',
+    'Impossible de joindre le serveur. Vérifiez que l’application est bien démarrée.');
+}
+
+/** Error of a non-JSON call (file download / upload): same handling as requete(). */
+async function erreurDe(reponse, chemin) {
+  let json = null;
+  try { json = await reponse.json(); } catch { /* not JSON */ }
+  if (reponse.status === 401) allerALaConnexion();
+  const e = json?.erreur;
+  return new ErreurApi(reponse.status, e?.code ?? 'ERREUR', e?.message ?? `Une erreur inattendue est survenue (${chemin}).`, e?.details);
+}
+
+/** Saves the file the server sends (backup) in the browser's downloads. Returns its name. */
+async function telecharger(chemin) {
+  let nom;
+  let blob;
+  if (mode === 'mock') {
+    ({ nom, blob } = sauvegardeMock());
+  } else {
+    let reponse;
+    try {
+      reponse = await fetch(`/api${chemin}`, { credentials: 'same-origin' });
+    } catch {
+      throw injoignable();
+    }
+    if (!reponse.ok) throw await erreurDe(reponse, chemin);
+    const dispo = reponse.headers.get('Content-Disposition') ?? '';
+    const m = /filename\*=UTF-8''([^;]+)/i.exec(dispo) ?? /filename="([^"]+)"/i.exec(dispo);
+    nom = m ? decodeURIComponent(m[1]) : 'sauvegarde.avicole';
+    blob = await reponse.blob();
+  }
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = nom;
+  document.body.append(lien);
+  lien.click();
+  lien.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  return nom;
+}
+
+/** Sends a file as the body (backup restore); the password goes in the X-Mot-De-Passe header. */
+async function envoyerFichier(chemin, fichier, motDePasse) {
+  if (mode === 'mock') return restaurerMock(await fichier.text(), motDePasse);
+  let reponse;
+  try {
+    reponse = await fetch(`/api${chemin}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', 'X-Mot-De-Passe': encodeURIComponent(motDePasse ?? '') },
+      body: fichier,
+      credentials: 'same-origin',
+    });
+  } catch {
+    throw injoignable();
+  }
+  if (!reponse.ok) throw await erreurDe(reponse, chemin);
+  return (await reponse.json())?.data ?? null;
+}
+
 export const api = {
+  telecharger,
+  envoyerFichier,
   get: (chemin) => requete('GET', chemin),
   post: (chemin, corps) => requete('POST', chemin, corps ?? {}),
   put: (chemin, corps) => requete('PUT', chemin, corps ?? {}),

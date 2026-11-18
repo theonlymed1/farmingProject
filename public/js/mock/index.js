@@ -374,6 +374,15 @@ function majEmployeMock(eid, f) {
 const routes = [
   {
     methode: 'GET',
+    motif: /^\/sauvegarde$/,
+    reponse: () => {
+      exigerConnexion();
+      const r = sessionStorage.getItem('mock-derniere-restauration');
+      return { derniereSauvegarde: sessionStorage.getItem('mock-derniere-sauvegarde'), derniereRestauration: r ? JSON.parse(r) : null };
+    },
+  },
+  {
+    methode: 'GET',
     motif: /^\/construction$/,
     reponse: () => { exigerConnexion(); return etatConstruction(); },
   },
@@ -1028,4 +1037,36 @@ export async function repondreMock(methode, chemin, corps) {
   }
   const params = chemin.match(route.motif).slice(1);
   return structuredClone(route.reponse({ params, corps: corps ?? {} }));
+}
+
+// --- Simulated backup (Paramètres → Sauvegarde) ---------------------------------------------
+// In mock mode the "file" is plain JSON of the simulated data (the real one is gzip, see the server).
+const CLES_DONNEES_MOCK = ['mock-bandes', 'mock-charges', 'mock-construction', 'mock-croissance', 'mock-employes',
+  'mock-mouvements', 'mock-vehicules', 'mock-ventes'];
+
+export function sauvegardeMock() {
+  exigerConnexion();
+  const donnees = Object.fromEntries(CLES_DONNEES_MOCK.map((k) => [k, sessionStorage.getItem(k)]));
+  const creeLe = new Date().toISOString();
+  sessionStorage.setItem('mock-derniere-sauvegarde', creeLe);
+  const contenu = JSON.stringify({ format: 'plateforme-avicole-sauvegarde-simulation', creeLe, donnees });
+  return { nom: `sauvegarde-simulation-${creeLe.slice(0, 10)}.avicole`, blob: new Blob([contenu], { type: 'application/octet-stream' }) };
+}
+
+export function restaurerMock(texte, motDePasse) {
+  exigerConnexion();
+  exigerMotDePasseMock({ motDePasse });
+  let f = null;
+  try { f = JSON.parse(texte); } catch { /* checked below */ }
+  if (f?.format !== 'plateforme-avicole-sauvegarde-simulation') {
+    throw new ErreurApi(400, 'VALIDATION', 'Ce fichier n’est pas une sauvegarde valide de la plateforme.');
+  }
+  for (const k of CLES_DONNEES_MOCK) {
+    if (f.donnees[k] == null) sessionStorage.removeItem(k);
+    else sessionStorage.setItem(k, f.donnees[k]);
+  }
+  const restauration = { le: new Date().toISOString(), sauvegardeDu: f.creeLe, application: 'simulation', enregistrements: 0 };
+  sessionStorage.setItem('mock-derniere-restauration', JSON.stringify(restauration));
+  sessionStorage.setItem('mock-derniere-sauvegarde', f.creeLe);
+  return { restauration, nombres: {} };
 }

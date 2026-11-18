@@ -676,3 +676,27 @@ Charges carry `categorie`, plus `kilometrage`/`intervalleKm`/`prochaineKm` (vida
 `description`; its kind can't change). Answers like POST, with `charge`. History lists the changes
 ("kilométrage 115 000 km → 116 000 km ; validité 1 an → 6 mois"). On screen every charge has a "⋯" menu
 (Modifier / Supprimer) in "Charges des véhicules" and in the car's sheet.
+
+## 0.15 — Sauvegarde et restauration (Paramètres)
+
+A backup file (`.avicole`) holds **all the farm data**: every table except `utilisateur`, `session` and
+`schema_migrations` (no password hash leaves the PC). Format: gzip of
+
+- line 1: JSON header `{ format: "plateforme-avicole-sauvegarde", version: 1, application, creeLe, nomExploitation,
+  migrations: ["001_init.sql", …], nombres: { "<table>": n }, empreinte }`
+- then: JSON object `{ "<table>": [ rows ], … }` — `empreinte` = SHA-256 of this text (a damaged file is refused).
+
+| Endpoint | | |
+| --- | --- | --- |
+| `GET /sauvegarde` | `{ derniereSauvegarde: ISO \| null, derniereRestauration: { le, sauvegardeDu, application, enregistrements } \| null }` | — |
+| `GET /sauvegarde/fichier` | the file (`Content-Disposition: attachment; filename="sauvegarde-ferme-sidi-aidi-2026-11-18-14h32.avicole"`) | history: "Sauvegarde téléchargée : …" |
+| `POST /sauvegarde/restaurer` | body = the file (`application/octet-stream`, ≤ 500 MB), password in header `X-Mot-De-Passe` (URI-encoded) → `{ restauration, nombres }` | history: "Données restaurées depuis la sauvegarde du … : N enregistrements" |
+
+Restore = ONE transaction (any error → nothing changes): password → keep the account and sessions (the farmer
+stays logged in with his current password) → drop every table and view → recreate them with the migrations the
+backup was made with → insert the rows (parents first, `jsonb_populate_recordset`) → reset the id counters →
+apply the newer migrations of this version (an old backup is upgraded) → put back the account and sessions.
+A backup from a newer version (unknown migrations) is refused with a clear message.
+
+`server/db/migrations.js` now exports `listeMigrations()` and `appliquerFichiers(client, fichiers)` for this.
+The "Les bandes" page shows a reminder when no backup was downloaded for 7 days.

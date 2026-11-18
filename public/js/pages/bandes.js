@@ -48,10 +48,27 @@ function afficher() {
   liste.innerHTML = bandes.map(carte).join('');
 }
 
+/** Reminder when no backup was downloaded for 7 days (and there is something to lose). */
+async function rappelSauvegarde() {
+  if (!bandes.length) return;
+  try {
+    const { derniereSauvegarde } = await api.get('/sauvegarde');
+    const jours = derniereSauvegarde ? Math.floor((Date.now() - new Date(derniereSauvegarde).getTime()) / 864e5) : null;
+    if (jours !== null && jours < 7) return;
+    document.getElementById('rappel-sauvegarde').innerHTML = `
+      <div class="alerte alerte-info rappel-sauvegarde">
+        ${jours === null ? 'Aucune sauvegarde des données n’a encore été téléchargée.' : `Dernière sauvegarde des données : il y a ${jours} jours.`}
+        Si le PC tombe en panne, une sauvegarde permet de tout récupérer.
+        <a href="/pages/parametres.html#titre-sauvegarde">Télécharger une sauvegarde</a>
+      </div>`;
+  } catch { /* the reminder is a help, never a blocker */ }
+}
+
 async function charger() {
   try {
     bandes = await api.get('/bandes');
     afficher();
+    rappelSauvegarde();
   } catch (e) {
     liste.innerHTML = '';
     afficherErreur(message, e);

@@ -15,6 +15,7 @@ import { routesVentes, routesClients } from './modules/ventes/routes.js';
 import vehiculesRoutes from './modules/vehicules/routes.js';
 import constructionRoutes from './modules/construction/routes.js';
 import historiqueRoutes from './modules/historique/routes.js';
+import sauvegardeRoutes from './modules/sauvegarde/routes.js';
 
 export function creerApp() {
   const app = express();
@@ -41,6 +42,7 @@ export function creerApp() {
   api.use('/construction', constructionRoutes);
   api.use('/bandes', bandesRoutes);
   api.use('/historique', historiqueRoutes);
+  api.use('/sauvegarde', sauvegardeRoutes);
   // New modules are mounted here, one line each, as phases land:
 
   api.use(routeApiInconnue);

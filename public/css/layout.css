@@ -411,3 +411,9 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .tableau-documents .badge { white-space: normal; }
 .tableau-documents th, .tableau-documents td { padding: var(--e1) var(--e2); }
 .dialogue-tres-large { width: min(900px, calc(100vw - 32px)); }
+
+/* --- Sauvegarde (Paramètres) ------------------------------------------------------------- */
+.etat-sauvegarde p { margin: var(--e2) 0; }
+.sauvegarde-ancienne { padding: var(--e2) var(--e3); background: var(--ambre-100); color: var(--texte-ambre); border-radius: var(--rayon); }
+.actions-sauvegarde { margin: var(--e3) 0 var(--e4); }
+#fichier-sauvegarde { padding: var(--e2); }
