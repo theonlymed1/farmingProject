@@ -4,6 +4,7 @@ import { erreurs } from '../../lib/erreurs.js';
 import { idParam } from '../../lib/validation.js';
 import {
   lireEmployes, ajouterEmploye, modifierEmploye, declarerRepos, annulerRepos, enregistrerDepart,
+  declarerAvance, supprimerAvance,
 } from './service.js';
 
 const router = Router({ mergeParams: true });
@@ -38,6 +39,18 @@ router.post('/:id/repos', async (req, res) => {
 
 router.delete('/:id/repos/:jour', async (req, res) => {
   res.json({ data: await annulerRepos(bandeId(req), employeId(req), req.params.jour) });
+});
+
+// Advance: { "montant": 300, "date": "2026-11-18", "note": "" } → 201 + "avance" for the receipt
+router.post('/:id/avances', async (req, res) => {
+  res.status(201).json({ data: await declarerAvance(bandeId(req), employeId(req), req.body) });
+});
+
+// The password travels in the body: { "motDePasse": "…" }
+router.delete('/:id/avances/:avanceId', async (req, res) => {
+  const avanceId = idParam(req.params.avanceId);
+  if (!avanceId) throw erreurs.introuvable('Cette avance n’existe pas ou a déjà été supprimée.');
+  res.json({ data: await supprimerAvance(bandeId(req), employeId(req), avanceId, req.body?.motDePasse, req.auth.utilisateurId) });
 });
 
 // Departure ("Supprimer"): { "dateDepart": "2026-11-30", "motDePasse": "…" }

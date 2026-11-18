@@ -1,4 +1,4 @@
-// Paramètres: change the password. The server checks everything again;
+// Paramètres: appearance (light / dark theme) and change the password. The server checks everything again;
 // the checklist here only helps the farmer while typing.
 import { monterLayout } from '../layout.js';
 import { api, mode } from '../api.js';
@@ -9,6 +9,12 @@ import {
 
 monterLayout({ titre: 'Paramètres' });
 brancherBasculesMotDePasse();
+
+// Apparence: light / dark / like Windows (js/theme.js applies it on every page).
+const choixTheme = document.getElementById('choix-theme');
+const radioActuel = choixTheme.querySelector(`[value="${window.themeAvicole?.lire() ?? 'clair'}"]`);
+if (radioActuel) radioActuel.checked = true;
+choixTheme.addEventListener('change', (evt) => window.themeAvicole?.choisir(evt.target.value));
 
 const formulaire = document.getElementById('formulaire-mdp');
 const message = document.getElementById('message');

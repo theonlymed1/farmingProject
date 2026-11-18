@@ -27,6 +27,15 @@
   --couleur-surface: var(--blanc);
   --couleur-bordure: var(--gris-300);
   --couleur-principale: var(--vert-700);
+  /* Semantic colors: the dark theme (theme.css) changes these, not the components. */
+  --couleur-champ: var(--blanc);          /* inputs, selects */
+  --couleur-lien: var(--vert-700);        /* links, secondary buttons, green text */
+  --couleur-entete: var(--vert-900);      /* top bar, login background */
+  --bouton-survol: var(--vert-900);
+  --texte-vert: var(--vert-900);          /* text on light green */
+  --texte-ambre: #7a4f10;                 /* text on light amber */
+  --texte-rouge: var(--rouge-600);        /* red text: errors, losses, amounts owed */
+  --texte-sur-couleur: var(--blanc);      /* text on green / red buttons */
 
   /* Typography */
   --police: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -64,7 +73,7 @@ h2 { font-size: 1.2rem; }
 h3 { font-size: 1.05rem; }
 p { margin: 0 0 var(--e3); }
 
-a { color: var(--couleur-principale); }
+a { color: var(--couleur-lien); }
 
 .texte-discret { color: var(--couleur-texte-discret); }
 .nombre { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
@@ -88,17 +97,17 @@ a { color: var(--couleur-principale); }
   border: 1px solid var(--couleur-principale);
   border-radius: var(--rayon);
   background: var(--couleur-principale);
-  color: var(--blanc);
+  color: var(--texte-sur-couleur);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
 }
-.bouton:hover { background: var(--vert-900); }
+.bouton:hover { background: var(--bouton-survol); }
 .bouton:focus-visible { outline: 3px solid var(--ambre-600); outline-offset: 2px; }
 .bouton:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.bouton-secondaire { background: var(--blanc); color: var(--couleur-principale); }
+.bouton-secondaire { background: var(--couleur-surface); color: var(--couleur-lien); }
 .bouton-secondaire:hover { background: var(--vert-100); }
 
 .bouton-danger { background: var(--rouge-600); border-color: var(--rouge-600); }
@@ -112,18 +121,19 @@ a { color: var(--couleur-principale); }
   padding: var(--e2);
   border: 1px solid var(--couleur-bordure);
   border-radius: var(--rayon);
-  background: var(--blanc);
+  background: var(--couleur-champ);
+  color: var(--couleur-texte);
 }
 .champ input:focus, .champ select:focus, .champ textarea:focus {
   outline: 2px solid var(--couleur-principale);
   border-color: var(--couleur-principale);
 }
 .champ .aide { font-size: 0.875rem; color: var(--couleur-texte-discret); }
-.champ .erreur-champ { font-size: 0.875rem; color: var(--rouge-600); margin: 0; }
+.champ .erreur-champ { font-size: 0.875rem; color: var(--texte-rouge); margin: 0; }
 .champ input[aria-invalid="true"] { border-color: var(--rouge-600); }
 
 /* --- Tables --------------------------------------------------------------- */
-.tableau { width: 100%; border-collapse: collapse; background: var(--blanc); }
+.tableau { width: 100%; border-collapse: collapse; background: var(--couleur-surface); }
 .tableau th, .tableau td { padding: var(--e2) var(--e3); border-bottom: 1px solid var(--couleur-bordure); text-align: left; }
 .tableau th { background: var(--gris-100); font-weight: 600; font-size: 0.9rem; }
 .tableau .nombre { text-align: right; }
@@ -132,9 +142,9 @@ a { color: var(--couleur-principale); }
 
 /* --- Messages ------------------------------------------------------------- */
 .alerte { padding: var(--e3); border-radius: var(--rayon); margin-bottom: var(--e3); border: 1px solid; }
-.alerte-erreur { background: var(--rouge-100); border-color: var(--rouge-600); color: var(--rouge-600); }
-.alerte-succes { background: var(--vert-100); border-color: var(--vert-700); color: var(--vert-900); }
-.alerte-info { background: var(--ambre-100); border-color: var(--ambre-600); color: #7a4f10; }
+.alerte-erreur { background: var(--rouge-100); border-color: var(--rouge-600); color: var(--texte-rouge); }
+.alerte-succes { background: var(--vert-100); border-color: var(--vert-700); color: var(--texte-vert); }
+.alerte-info { background: var(--ambre-100); border-color: var(--ambre-600); color: var(--texte-ambre); }
 
 .badge {
   display: inline-block;
@@ -146,7 +156,7 @@ a { color: var(--couleur-principale); }
   color: var(--gris-700);
   white-space: nowrap;
 }
-.badge-ok { background: var(--vert-100); color: var(--vert-900); }
+.badge-ok { background: var(--vert-100); color: var(--texte-vert); }
 
 /* --- Definition lists (key/value blocks) ------------------------------------ */
 .liste-cles { display: grid; grid-template-columns: max-content 1fr; gap: var(--e2) var(--e4); margin: 0; }
@@ -155,3 +165,42 @@ a { color: var(--couleur-principale); }
 
 /* Shown only when printing (see print.css). */
 .seulement-impression { display: none; }
+
+/* ==========================================================================
+   Dark theme (Paramètres → Apparence, set by js/theme.js). Screen only:
+   paper always prints in the light colors.
+   ========================================================================== */
+@media screen {
+  :root[data-theme="sombre"] {
+    color-scheme: dark;
+    --gris-100: #262d29;
+    --gris-300: #3b443f;
+    --gris-500: #8b958f;
+    --gris-700: #b3bdb6;
+    --gris-900: #e6ebe7;
+    --couleur-fond: #121614;
+    --couleur-surface: #1b201d;
+    --couleur-champ: #232925;
+    --couleur-lien: #85d494;
+    --couleur-entete: #10261a;
+    --bouton-survol: #2f6b3a;
+    --vert-100: #1f3526;
+    --texte-vert: #a9e4b4;
+    --ambre-100: #3a2e14;
+    --ambre-50: #2a2312;
+    --texte-ambre: #f0c674;
+    --rouge-100: #3d1d1a;
+    --texte-rouge: #ff8f85;
+    --vert-clair: #1a3120;
+    --vert-bord: #3f7a4a;
+    --rouge-clair: #361d1b;
+    --rouge-bord: #8a4039;
+    --vert-ecart: #1f3d26;
+    --rouge-ecart: #47211d;
+    --violet-100: #272a52;
+    --texte-violet: #bcbfff;
+    --ombre: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+  :root[data-theme="sombre"] .entete .bouton:hover { background: #d9eadc; }
+  :root[data-theme="sombre"] .dialogue::backdrop { background: rgba(0, 0, 0, 0.7); }
+}

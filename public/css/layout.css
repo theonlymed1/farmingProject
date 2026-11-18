@@ -19,7 +19,7 @@
   align-items: center;
   gap: var(--e4);
   padding: var(--e2) var(--e4);
-  background: var(--vert-900);
+  background: var(--couleur-entete);
   color: var(--blanc);
 }
 .entete .marque { font-weight: 700; font-size: 1.1rem; margin-right: auto; }
@@ -46,7 +46,7 @@
 /* --- Side menu ------------------------------------------------------------ */
 .menu {
   grid-area: menu;
-  background: var(--blanc);
+  background: var(--couleur-surface);
   border-right: 1px solid var(--couleur-bordure);
   padding: var(--e3) 0;
 }
@@ -76,7 +76,7 @@
   display: grid;
   place-items: center;
   padding: var(--e4);
-  background: var(--vert-900);
+  background: var(--couleur-entete);
 }
 .boite-connexion { width: 100%; max-width: 400px; }
 .boite-connexion .titre-appli { margin-bottom: var(--e1); }
@@ -91,8 +91,8 @@
 /* --- Password rules checklist ----------------------------------------------- */
 .regles { list-style: none; padding: 0; margin: 0 0 var(--e3); font-size: 0.9rem; }
 .regles li::before { content: "○ "; color: var(--gris-500); }
-.regles li.ok { color: var(--vert-700); }
-.regles li.ok::before { content: "✓ "; color: var(--vert-700); }
+.regles li.ok { color: var(--couleur-lien); }
+.regles li.ok::before { content: "✓ "; color: var(--couleur-lien); }
 .formulaire-etroit { max-width: 480px; }
 
 /* --- Content -------------------------------------------------------------- */
@@ -152,12 +152,12 @@
 .carte-bande-actions { position: relative; z-index: 2; display: flex; justify-content: flex-end; margin-top: var(--e3); }
 .etat-vide { grid-column: 1 / -1; text-align: center; padding: var(--e5); }
 
-.bouton-lien { background: none; border: 0; padding: var(--e1) var(--e2); font: inherit; cursor: pointer; text-decoration: underline; color: var(--couleur-principale); }
-.bouton-lien-danger { color: var(--rouge-600); }
+.bouton-lien { background: none; border: 0; padding: var(--e1) var(--e2); font: inherit; cursor: pointer; text-decoration: underline; color: var(--couleur-lien); }
+.bouton-lien-danger { color: var(--texte-rouge); }
 
 /* --- Indicator tiles (Bande dashboard) ---------------------------------------- */
 .indicateurs { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--e3); margin-bottom: var(--e4); }
-.indicateur { display: flex; flex-direction: column; gap: var(--e1); padding: var(--e3) var(--e4); border: 1px solid var(--couleur-bordure); border-radius: var(--rayon); background: var(--blanc); }
+.indicateur { display: flex; flex-direction: column; gap: var(--e1); padding: var(--e3) var(--e4); border: 1px solid var(--couleur-bordure); border-radius: var(--rayon); background: var(--couleur-surface); }
 .indicateur-libelle { font-size: 0.85rem; font-weight: 600; color: var(--couleur-texte-discret); }
 .indicateur-valeur { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .indicateur-detail { font-size: 0.85rem; color: var(--couleur-texte-discret); }
@@ -175,6 +175,8 @@
   border-radius: var(--rayon);
   padding: var(--e4);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  background: var(--couleur-surface);
+  color: var(--couleur-texte);
 }
 .dialogue::backdrop { background: rgba(20, 30, 22, 0.55); }
 .dialogue h2 { margin-bottom: var(--e3); }
@@ -204,16 +206,16 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .choix label { display: flex; align-items: center; gap: var(--e2); font-weight: 400; }
 .total-poussins { margin-top: calc(-1 * var(--e2)); font-weight: 600; }
 
-.badge-maladie { background: var(--ambre-100); color: #7a4f10; }
-.badge-guerison { background: var(--vert-100); color: var(--vert-900); }
-.badge-mort { background: var(--rouge-100); color: var(--rouge-600); }
+.badge-maladie { background: var(--ambre-100); color: var(--texte-ambre); }
+.badge-guerison { background: var(--vert-100); color: var(--texte-vert); }
+.badge-mort { background: var(--rouge-100); color: var(--texte-rouge); }
 
 .visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* --- Croissance et pesées ------------------------------------------------------ */
 :root { --vert-ecart: #d4f0d8; --rouge-ecart: #f9d7d3; }
-.ecart-positif { background: var(--vert-ecart); color: #1d5a2a; }
-.ecart-negatif { background: var(--rouge-ecart); color: #8f1c13; }
+.ecart-positif { background: var(--vert-ecart); color: var(--texte-vert); }
+.ecart-negatif { background: var(--rouge-ecart); color: var(--texte-rouge); }
 .pastille { padding: 0 var(--e2); border-radius: 999px; font-weight: 600; }
 .defilement-tableau { overflow-x: auto; }
 .grille-croissance { min-width: 820px; }
@@ -230,7 +232,7 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
   padding: var(--e1) var(--e2);
   border: 1px solid var(--couleur-bordure);
   border-radius: 4px;
-  background: var(--blanc);
+  background: var(--couleur-surface);
 }
 .cellule-saisie input:focus { outline: 2px solid var(--couleur-principale); border-color: var(--couleur-principale); }
 .cellule-saisie input.saisie-modifiee { border-color: var(--ambre-600); background: var(--ambre-100); }
@@ -248,13 +250,13 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
   gap: var(--e3);
   padding: var(--e3) var(--e4);
   margin: 0 calc(-1 * var(--e5)) calc(-1 * var(--e5));
-  background: var(--blanc);
+  background: var(--couleur-surface);
   border-top: 1px solid var(--couleur-bordure);
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
 }
 .barre-enregistrer span { margin-right: auto; color: var(--couleur-texte-discret); }
 .barre-active { background: var(--ambre-100); }
-.barre-active span { color: #7a4f10; font-weight: 600; }
+.barre-active span { color: var(--texte-ambre); font-weight: 600; }
 
 .tableau-compact { max-width: 560px; }
 .tableau-compact th, .tableau-compact td { padding: var(--e1) var(--e3); }
@@ -265,12 +267,12 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .filtres { display: flex; flex-wrap: wrap; gap: var(--e4); margin-bottom: var(--e3); }
 .filtres label { display: flex; align-items: center; gap: var(--e2); font-weight: 600; }
 .filtres select { font: inherit; padding: var(--e1) var(--e2); border: 1px solid var(--couleur-bordure); border-radius: var(--rayon); }
-.badge-sans-prix { background: var(--ambre-100); color: #7a4f10; }
+.badge-sans-prix { background: var(--ambre-100); color: var(--texte-ambre); }
 .indicateur-alerte { background: var(--ambre-100); border-color: var(--ambre-600); }
 .tableau-charges td, .tableau-charges th { padding: var(--e2); }
 .cellule-description { max-width: 260px; font-size: 0.9rem; color: var(--couleur-texte-discret); }
 .actions-ligne { white-space: nowrap; }
-.ligne-sans-prix td { background: #fffaf0; }
+.ligne-sans-prix td { background: var(--ambre-50, #fffaf0); }
 .etat-vide-charges { text-align: center; padding: var(--e4); }
 
 /* --- Cost tiles (Charges + Bande page) ---------------------------------------------- */
@@ -282,9 +284,9 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .champs-trois { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--e2); }
 .champs-trois input { width: 100%; min-width: 0; }
 .declaration-sexage { border-top-color: var(--categorie-sexage, #5b5fc7); }
-.badge-sexage { background: #e8e9fb; color: #3b3f9e; }
+.badge-sexage { background: var(--violet-100, #e8e9fb); color: var(--texte-violet, #3b3f9e); }
 .reste-non-sexes { font-weight: 600; margin-top: calc(-1 * var(--e2)); }
-.reste-trop { color: var(--rouge-600); }
+.reste-trop { color: var(--texte-rouge); }
 .resume-troupeau { margin-bottom: var(--e2); }
 .grille-declarations { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 1000px) { .grille-declarations { grid-template-columns: 1fr; } }
@@ -306,7 +308,7 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
   padding: 2px var(--e2) 6px;
   border: 1px solid var(--couleur-bordure);
   border-radius: var(--rayon);
-  background: var(--blanc);
+  background: var(--couleur-surface);
   cursor: pointer;
 }
 .bouton-menu:hover, .bouton-menu[aria-expanded="true"] { background: var(--vert-100); border-color: var(--vert-bord); }
@@ -317,7 +319,7 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
   margin: 0;
   padding: var(--e1) 0;
   min-width: 240px;
-  background: var(--blanc);
+  background: var(--couleur-surface);
   border: 1px solid var(--couleur-bordure);
   border-radius: var(--rayon);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
@@ -333,9 +335,9 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
   cursor: pointer;
 }
 .menu-actions button:hover, .menu-actions button:focus { background: var(--vert-100); outline: none; }
-.menu-actions .action-danger { color: var(--rouge-600); }
+.menu-actions .action-danger { color: var(--texte-rouge); }
 .menu-actions .action-danger:hover, .menu-actions .action-danger:focus { background: var(--rouge-100); }
-.solde-negatif { color: var(--rouge-600); font-weight: 600; }
+.solde-negatif { color: var(--texte-rouge); font-weight: 600; }
 .montant-final { font-size: 1.2rem; font-weight: 700; }
 .dialogue h3 { margin-top: var(--e4); }
 .liste-repos { list-style: none; padding: 0; margin: 0; max-height: 220px; overflow-y: auto; }
@@ -356,7 +358,7 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 #filtres { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--e3); }
 #filtres .champ { margin-bottom: 0; min-width: 150px; }
 #filtres .champ-large { flex: 1; min-width: 220px; }
-#filtres select { font: inherit; padding: var(--e2); border: 1px solid var(--couleur-bordure); border-radius: var(--rayon); background: var(--blanc); }
+#filtres select { font: inherit; padding: var(--e2); border: 1px solid var(--couleur-bordure); border-radius: var(--rayon); background: var(--couleur-surface); }
 .tableau-historique td, .tableau-historique th { padding: var(--e2); vertical-align: top; }
 .tableau-historique .cellule-date { white-space: nowrap; }
 .plus { text-align: center; margin-top: var(--e3); }
@@ -366,7 +368,7 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 /* --- Ventes ---------------------------------------------------------------------------- */
 .indicateur-benefice { background: var(--vert-clair); border-color: var(--vert-700); border-width: 2px; }
 .indicateur-perte { background: var(--rouge-clair); border-color: var(--rouge-600); border-width: 2px; }
-.indicateur-perte .indicateur-valeur { color: var(--rouge-600); }
+.indicateur-perte .indicateur-valeur { color: var(--texte-rouge); }
 .badge-client { background: var(--gris-100); color: var(--gris-700); font-weight: 500; }
 .cellule-numero { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
 .tableau-ventes td { vertical-align: top; }
@@ -382,3 +384,4 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .facture-total { font-size: 1.2rem; margin-top: var(--e3); padding: var(--e2) var(--e3); background: var(--gris-100); border-radius: var(--rayon); }
 .facture-note { font-size: 0.85rem; }
 .tableau-ventes .actions-ligne button { display: block; margin: 0 0 var(--e1); }
+.tableau-facture tfoot td, .tableau-facture tfoot th { background: var(--gris-100); font-weight: 700; }

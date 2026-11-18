@@ -1,5 +1,6 @@
 // Employés (?bande=…): add / edit workers, search by name, and from the "⋯" menu:
-// declare a rest day, see the worker's info, edit, or "Supprimer" = the worker leaves
+// declare an advance (with a printable receipt), declare a rest day, see the worker's info
+// (advances, rest days), edit, or "Supprimer" = the worker leaves
 // (password + departure date) with a printable receipt of what he is owed.
 import { monterLayout } from '../layout.js';
 import { api } from '../api.js';
@@ -8,6 +9,7 @@ import {
 } from '../format.js';
 import {
   echapper, afficherErreur, afficherSucces, afficherErreursChamps, effacerErreursChamps, brancherBasculesMotDePasse,
+  confirmerAvecMotDePasse,
 } from '../ui.js';
 import { calculerCompte } from '../employes-calcul.js';
 
@@ -47,7 +49,7 @@ function tuiles() {
       <div class="indicateur">
         <span class="indicateur-libelle">Avances versées</span>
         <span class="indicateur-valeur">${formaterMontant(r.totalAvances)}</span>
-        <span class="indicateur-detail">une avance par semaine complète</span>
+        <span class="indicateur-detail">${r.nombreAvances ? pluriel(r.nombreAvances, 'avance') : 'aucune avance'}</span>
       </div>
       <div class="indicateur">
         <span class="indicateur-libelle">Reste à payer aux employés actuels</span>
@@ -72,7 +74,7 @@ function ligneActif(e) {
       <td>${formaterDate(e.dateDebut)}</td>
       <td class="nombre">${formaterNombre(c.joursTravailles)}</td>
       <td class="nombre">${formaterNombre(c.joursRepos)}</td>
-      <td class="nombre">${formaterMontant(e.avanceHebdo)}</td>
+      <td class="nombre">${formaterMontant(c.totalAvances)}</td>
       <td class="nombre">${formaterMontant(e.salaireJournalier)}</td>
       <td class="nombre">${soldeTexte(c.solde)}</td>
       <td class="no-print cellule-menu">
@@ -110,7 +112,7 @@ function afficherListes() {
           <tr>
             <th scope="col">Nom complet</th><th scope="col" class="nombre">Âge</th><th scope="col">CIN</th>
             <th scope="col">Début</th><th scope="col" class="nombre">Jours trav.</th><th scope="col" class="nombre">Repos</th>
-            <th scope="col" class="nombre">Avance /sem.</th><th scope="col" class="nombre">Salaire /jour</th>
+            <th scope="col" class="nombre">Avances</th><th scope="col" class="nombre">Salaire /jour</th>
             <th scope="col" class="nombre">À payer</th><th scope="col" class="no-print"><span class="visuellement-cache">Actions</span></th>
           </tr>
         </thead>
@@ -156,6 +158,7 @@ function afficher() {
 // --- "⋯" menu --------------------------------------------------------------------------
 
 const ACTIONS = [
+  ['avance', 'Déclarer une avance'],
   ['repos', 'Déclarer un jour de repos'],
   ['infos', 'Voir les informations'],
   ['modifier', 'Modifier'],
@@ -178,7 +181,9 @@ function ouvrirMenu(bouton) {
       class="${action === 'supprimer' ? 'action-danger' : ''}">${libelle}</button></li>`).join('');
   document.body.append(menu);
   const r = bouton.getBoundingClientRect();
-  menu.style.top = `${r.bottom + window.scrollY + 4}px`;
+  // Below the button if it fits on the screen, otherwise above it: no scrolling to see the last options.
+  const enBas = r.bottom + 4 + menu.offsetHeight <= window.innerHeight - 8 || r.top - 4 - menu.offsetHeight < 8;
+  menu.style.top = `${(enBas ? r.bottom + 4 : r.top - 4 - menu.offsetHeight) + window.scrollY}px`;
   menu.style.left = `${Math.max(8, r.right + window.scrollX - menu.offsetWidth)}px`;
   bouton.setAttribute('aria-expanded', 'true');
   menu.querySelector('button').focus();
@@ -188,7 +193,7 @@ function ouvrirMenu(bouton) {
     if (!action) return;
     fermerMenu();
     ({
-      repos: declarerRepos, infos: voirInfos, modifier: () => ouvrirFormulaire(employe), supprimer: enregistrerDepart,
+      avance: declarerAvance, repos: declarerRepos, infos: voirInfos, modifier: () => ouvrirFormulaire(employe), supprimer: enregistrerDepart,
     })[action](employe);
   });
   menu.addEventListener('keydown', (evt) => {
@@ -243,7 +248,7 @@ async function envoyer(d, form, appel, correspondance = {}) {
 
 function ouvrirFormulaire(employe = null) {
   const v = employe ?? {
-    nom: '', age: '', cin: '', dateDebut: aujourdhui(), avanceHebdo: 200, salaireJournalier: null,
+    nom: '', age: '', cin: '', dateDebut: aujourdhui(), salaireJournalier: null,
   };
   const d = dialogue(`
     <form method="dialog" novalidate autocomplete="off">
@@ -263,15 +268,10 @@ function ouvrirFormulaire(employe = null) {
           <input id="cin" maxlength="20" value="${echapper(v.cin)}" placeholder="Ex. AB123456">
         </div>
       </div>
-      <div class="champ">
-        <label for="dateDebut">Date de début du travail</label>
-        <input id="dateDebut" type="date" value="${echapper(v.dateDebut)}">
-      </div>
       <div class="champs-cote">
         <div class="champ">
-          <label for="avanceHebdo">Avance par semaine (DH)</label>
-          <input id="avanceHebdo" inputmode="decimal" value="${echapper(ecrireMontant(v.avanceHebdo))}">
-          <span class="aide">Versée chaque semaine, comptée dans les coûts.</span>
+          <label for="dateDebut">Date de début du travail</label>
+          <input id="dateDebut" type="date" value="${echapper(v.dateDebut)}">
         </div>
         <div class="champ">
           <label for="salaireJournalier">Salaire par jour (DH)</label>
@@ -279,6 +279,7 @@ function ouvrirFormulaire(employe = null) {
           <span class="aide">Payé au départ : jours travaillés × salaire − avances.</span>
         </div>
       </div>
+      <p class="aide">Les avances se déclarent une par une, avec le menu « ⋯ » de l’employé → « Déclarer une avance ».</p>
       <div class="actions-dialogue">
         <button type="button" class="bouton bouton-secondaire" data-fermer>Annuler</button>
         <button type="submit" class="bouton">${employe ? 'Enregistrer' : 'Ajouter l’employé'}</button>
@@ -288,10 +289,8 @@ function ouvrirFormulaire(employe = null) {
   form.nom.focus();
   form.addEventListener('submit', async (evt) => {
     evt.preventDefault();
-    const avance = lireMontant(form.avanceHebdo.value);
     const salaire = lireMontant(form.salaireJournalier.value);
     const champs = {};
-    if (Number.isNaN(avance)) champs.avanceHebdo = 'L’avance doit être un nombre (ex. 200).';
     if (Number.isNaN(salaire)) champs.salaireJournalier = 'Le salaire doit être un nombre (ex. 100).';
     if (Object.keys(champs).length) { afficherErreursChamps(form, champs); return; }
     const corps = {
@@ -299,13 +298,57 @@ function ouvrirFormulaire(employe = null) {
       age: form.age.value === '' ? null : Number(form.age.value),
       cin: form.cin.value,
       dateDebut: form.dateDebut.value,
-      avanceHebdo: avance ?? 200,
       salaireJournalier: salaire,
     };
     const ok = await envoyer(d, form, () => (employe
       ? api.put(`/bandes/${bandeId}/employes/${employe.id}`, corps)
       : api.post(`/bandes/${bandeId}/employes`, corps)));
     if (ok) afficherSucces(message, employe ? 'Employé modifié.' : `${corps.nom.trim()} a été ajouté.`);
+  });
+}
+
+function declarerAvance(employe) {
+  const d = dialogue(`
+    <form method="dialog" novalidate autocomplete="off">
+      <h2>Avance — ${echapper(employe.nom)}</h2>
+      <div class="message"></div>
+      <div class="champs-cote">
+        <div class="champ">
+          <label for="avance-montant">Montant (DH)</label>
+          <input id="avance-montant" inputmode="decimal" placeholder="Ex. 200">
+        </div>
+        <div class="champ">
+          <label for="avance-date">Date</label>
+          <input id="avance-date" type="date" value="${aujourdhui()}" min="${employe.dateDebut}" max="${aujourdhui()}">
+        </div>
+      </div>
+      <div class="champ">
+        <label for="avance-note">Remarque <span class="texte-discret">(facultatif)</span></label>
+        <input id="avance-note" maxlength="200" placeholder="Ex. pour le souk, médicaments…">
+      </div>
+      <div class="actions-dialogue">
+        <button type="button" class="bouton bouton-secondaire" data-fermer>Annuler</button>
+        <button type="submit" class="bouton">Confirmer l’avance</button>
+      </div>
+    </form>`);
+  const form = d.querySelector('form');
+  const champMontant = form.querySelector('#avance-montant');
+  const champDate = form.querySelector('#avance-date');
+  champMontant.focus();
+  form.addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const montant = lireMontant(champMontant.value);
+    if (Number.isNaN(montant)) {
+      afficherErreursChamps(form, { montant: 'Le montant doit être un nombre (ex. 200 ou 150,50).' }, { montant: 'avance-montant' });
+      return;
+    }
+    const resultat = await envoyer(d, form, () => api.post(`/bandes/${bandeId}/employes/${employe.id}/avances`, {
+      montant, date: champDate.value, note: form.querySelector('#avance-note').value,
+    }), { montant: 'avance-montant', date: 'avance-date', note: 'avance-note' });
+    if (!resultat) return;
+    const a = resultat.avance;
+    afficherSucces(message, `Avance de ${formaterMontant(a.montant)} donnée à ${employe.nom} le ${formaterDate(a.date)}.`);
+    montrerRecuAvance(resultat.employes.find((e) => e.id === employe.id), a);
   });
 }
 
@@ -346,7 +389,7 @@ function htmlCompte(e, c) {
       <dt>Jours de repos</dt><dd>${formaterNombre(c.joursRepos)}</dd>
       <dt>Jours travaillés</dt><dd><strong>${formaterNombre(c.joursTravailles)}</strong></dd>
       <dt>Salaire</dt><dd>${formaterNombre(c.joursTravailles)} × ${formaterMontant(e.salaireJournalier)} = <strong>${formaterMontant(c.salaireTotal)}</strong></dd>
-      <dt>Avances</dt><dd>${pluriel(c.semaines, 'semaine')} × ${formaterMontant(e.avanceHebdo)} = <strong>${formaterMontant(c.totalAvances)}</strong></dd>
+      <dt>Avances</dt><dd>${c.nombreAvances ? `${pluriel(c.nombreAvances, 'avance')} = ` : 'aucune : '}<strong>${formaterMontant(c.totalAvances)}</strong></dd>
       <dt>${c.solde >= 0 ? 'Reste à payer' : 'L’employé doit'}</dt>
       <dd class="montant-final ${c.solde < 0 ? 'solde-negatif' : ''}">${formaterMontant(Math.abs(c.solde))}</dd>
     </dl>`;
@@ -362,11 +405,19 @@ function voirInfos(employe) {
         <dt>Âge</dt><dd>${employe.age} ans</dd>
         <dt>CIN</dt><dd>${echapper(employe.cin)}</dd>
         <dt>Début du travail</dt><dd>${formaterDate(employe.dateDebut)}</dd>
-        <dt>Avance par semaine</dt><dd>${formaterMontant(employe.avanceHebdo)}</dd>
         <dt>Salaire par jour</dt><dd>${formaterMontant(employe.salaireJournalier)}</dd>
       </dl>
       <h3>Compte à ce jour</h3>
       ${htmlCompte(employe, employe.compte)}
+      <h3>Avances (${employe.avances.length})</h3>
+      ${employe.avances.length ? `<ul class="liste-repos">${[...employe.avances].reverse().map((a) => `
+        <li><span>${formaterDate(a.date)} — <strong>${formaterMontant(a.montant)}</strong>${a.note
+    ? ` <span class="texte-discret">— ${echapper(a.note)}</span>` : ''}</span>
+          <span class="actions-ligne">
+            <button type="button" class="bouton-lien" data-recu-avance="${a.id}">Reçu</button>
+            ${employe.actif ? `<button type="button" class="bouton-lien bouton-lien-danger" data-supprimer-avance="${a.id}">Supprimer</button>` : ''}
+          </span></li>`).join('')}</ul>`
+    : '<p class="texte-discret">Aucune avance.</p>'}
       <h3>Jours de repos (${repos.length})</h3>
       ${repos.length ? `<ul class="liste-repos">${repos.map((j) => `
         <li><span>${formaterDate(j.date)}${j.note ? ` <span class="texte-discret">— ${echapper(j.note)}</span>` : ''}</span>
@@ -377,6 +428,29 @@ function voirInfos(employe) {
       </div>
     </div>`, { large: true });
   d.addEventListener('click', async (evt) => {
+    const recu = evt.target.closest('[data-recu-avance]');
+    if (recu) {
+      montrerRecuAvance(employe, employe.avances.find((a) => a.id === Number(recu.dataset.recuAvance)));
+      return;
+    }
+    const suppr = evt.target.closest('[data-supprimer-avance]');
+    if (suppr) {
+      const a = employe.avances.find((x) => x.id === Number(suppr.dataset.supprimerAvance));
+      const nouvel = await confirmerAvecMotDePasse({
+        titre: `Supprimer l’avance de ${formaterMontant(a.montant)} ?`,
+        avertissement: `Avance du ${formaterDate(a.date)} donnée à ${employe.nom}. Elle ne sera plus comptée `
+          + 'dans ses avances ni dans les coûts. Cette action est irréversible.',
+        bouton: 'Supprimer l’avance',
+        action: (motDePasse) => api.supprimer(`/bandes/${bandeId}/employes/${employe.id}/avances/${a.id}`, { motDePasse }),
+      });
+      if (!nouvel) return;
+      etat = nouvel;
+      afficher();
+      d.close();
+      afficherSucces(message, `Avance de ${formaterMontant(a.montant)} du ${formaterDate(a.date)} supprimée.`);
+      voirInfos(etat.employes.find((e) => e.id === employe.id));
+      return;
+    }
     const b = evt.target.closest('[data-annuler-repos]');
     if (!b) return;
     try {
@@ -419,7 +493,7 @@ function enregistrerDepart(employe) {
   const champDate = form.querySelector('#dateDepart');
   const apercu = () => {
     if (!champDate.value) { form.querySelector('#apercu-compte').innerHTML = ''; return; }
-    const c = calculerCompte({ ...employe, dateDepart: champDate.value }, employe.joursRepos.map((j) => j.date), aujourdhui());
+    const c = calculerCompte({ ...employe, dateDepart: champDate.value }, employe.joursRepos.map((j) => j.date), employe.avances, aujourdhui());
     form.querySelector('#apercu-compte').innerHTML = htmlCompte(employe, c);
   };
   champDate.addEventListener('input', apercu);
@@ -467,9 +541,49 @@ function htmlRecu(e) {
     </div>`;
 }
 
+/** Receipt for one advance: who, which Bande, date, amount, and the two signatures. */
+function htmlRecuAvance(e, a) {
+  return `
+    <div class="recu">
+      <div class="recu-entete">
+        <strong>${echapper(nomExploitation)}</strong>
+        <span>Reçu d’avance — ${formaterDate(a.date)}</span>
+      </div>
+      <h2>Avance sur salaire</h2>
+      <dl class="liste-cles">
+        <dt>Nom complet</dt><dd>${echapper(e.nom)}</dd>
+        <dt>CIN</dt><dd>${echapper(e.cin)}</dd>
+        <dt>Bande</dt><dd>${echapper(etat.bande.nom)}</dd>
+        <dt>Date de l’avance</dt><dd>${formaterDate(a.date)}</dd>
+        ${a.note ? `<dt>Remarque</dt><dd>${echapper(a.note)}</dd>` : ''}
+      </dl>
+      <p class="facture-total">Montant de l’avance : <strong>${formaterMontant(a.montant)}</strong></p>
+      <div class="recu-signatures">
+        <div>Signature de l’employé</div>
+        <div>Signature du responsable</div>
+      </div>
+    </div>`;
+}
+
+function montrerRecuAvance(e, a) {
+  const d = dialogue(`
+    <div>
+      ${htmlRecuAvance(e, a)}
+      <div class="actions-dialogue no-print">
+        <button type="button" class="bouton bouton-secondaire" data-fermer>Fermer</button>
+        <button type="button" class="bouton" data-imprimer-recu>Imprimer le reçu</button>
+      </div>
+    </div>`, { large: true });
+  d.querySelector('[data-imprimer-recu]').addEventListener('click', () => imprimerHtml(htmlRecuAvance(e, a)));
+}
+
 function imprimerRecu(e) {
+  imprimerHtml(htmlRecu(e));
+}
+
+function imprimerHtml(html) {
   const zoneRecu = document.getElementById('zone-recu');
-  zoneRecu.innerHTML = htmlRecu(e);
+  zoneRecu.innerHTML = html;
   zoneRecu.hidden = false;
   document.body.classList.add('impression-recu');
   window.addEventListener('afterprint', () => {

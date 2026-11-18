@@ -15,7 +15,7 @@ const bandeId = Number(new URLSearchParams(location.search).get('bande'));
 const zone = document.getElementById('contenu-ventes');
 const message = document.getElementById('message');
 let etat = null; // { bande, ventes, resume }
-let nomExploitation = 'Firme Sidi Aidi';
+let nomExploitation = 'Ferme Sidi Aidi';
 let recherche = '';
 
 /** '3 mâles, 2 femelles et 4 non sexés' */

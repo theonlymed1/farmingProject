@@ -1,4 +1,5 @@
-// Employés of a Bande: add, edit, rest days, departure (password) with the final settlement.
+// Employés of a Bande: add, edit, rest days, advances (with a receipt), departure (password)
+// with the final settlement.
 import { query, transaction } from '../../db/postgres.js';
 import { journaliser } from '../../lib/historique.js';
 import { erreurs } from '../../lib/erreurs.js';
@@ -9,14 +10,13 @@ import { lireBandeClient } from '../bandes/service.js';
 import { exigerMotDePasse } from '../auth/service.js';
 import { calculerCompte } from './calcul.js';
 
-function versJson(r, joursRepos, aujourdhui) {
+function versJson(r, joursRepos, avances, aujourdhui) {
   const e = {
     id: r.id,
     nom: r.nom,
     age: r.age,
     cin: r.cin,
     dateDebut: r.date_debut,
-    avanceHebdo: r.avance_hebdo,
     salaireJournalier: r.salaire_journalier,
     dateDepart: r.date_depart,
     actif: r.date_depart == null,
@@ -24,9 +24,14 @@ function versJson(r, joursRepos, aujourdhui) {
     modifieLe: r.modifie_le,
   };
   e.joursRepos = joursRepos;
-  e.compte = calculerCompte(e, joursRepos.map((j) => j.date), aujourdhui);
+  e.avances = avances;
+  e.compte = calculerCompte(e, joursRepos.map((j) => j.date), avances, aujourdhui);
   return e;
 }
+
+const avanceJson = (a) => ({
+  id: a.id, date: a.date_avance, montant: a.montant, note: a.note, creeLe: a.cree_le,
+});
 
 async function lireTous(client, bandeId) {
   const { rows: [{ aujourdhui }] } = await client.query('SELECT current_date AS aujourdhui');
@@ -38,9 +43,15 @@ async function lireTous(client, bandeId) {
       WHERE e.bande_id = $1 ORDER BY r.jour`,
     [bandeId],
   );
+  const { rows: avances } = await client.query(
+    `SELECT a.* FROM avance a JOIN employe e ON e.id = a.employe_id
+      WHERE e.bande_id = $1 ORDER BY a.date_avance, a.id`,
+    [bandeId],
+  );
   return rows.map((r) => versJson(
     r,
     repos.filter((x) => x.employe_id === r.id).map((x) => ({ date: x.jour, note: x.note })),
+    avances.filter((x) => x.employe_id === r.id).map(avanceJson),
     aujourdhui,
   ));
 }
@@ -56,6 +67,7 @@ export async function coutEmployes(client, bandeId) {
     nombreActifs: employes.filter((e) => e.actif).length,
     nombrePartis: employes.filter((e) => !e.actif).length,
     totalAvances: arrondi(employes.reduce((t, e) => t + e.compte.totalAvances, 0)),
+    nombreAvances: employes.reduce((t, e) => t + e.compte.nombreAvances, 0),
     cout: arrondi(employes.reduce((t, e) => t + e.compte.cout, 0)),
     // Still owed to current workers if they left today (wages − advances).
     soldeActifs: arrondi(employes.filter((e) => e.actif).reduce((t, e) => t + e.compte.solde, 0)),
@@ -91,17 +103,16 @@ function valider(corps) {
   const [cinBrut, eCin] = texte(corps?.cin, { nom: 'Le numéro de CIN', max: 20 });
   const cin = cinBrut.replace(/\s/g, '').toUpperCase();
   const [dateDebut, eDate] = date(corps?.dateDebut, { nom: 'La date de début' });
-  const [avanceHebdo, eAvance] = nombre(corps?.avanceHebdo ?? 200, { nom: 'L’avance hebdomadaire', max: 100000 });
   const [salaireJournalier, eSalaire] = nombre(corps?.salaireJournalier, {
     nom: 'Le salaire journalier', max: 100000, obligatoire: true,
   });
   Object.entries({
-    nom: eNom, age: eAge, cin: eCin, dateDebut: eDate, avanceHebdo: eAvance, salaireJournalier: eSalaire,
+    nom: eNom, age: eAge, cin: eCin, dateDebut: eDate, salaireJournalier: eSalaire,
   }).forEach(([k, e]) => { if (e) champs[k] = e; });
   if (!eCin && !/^[A-Z]{1,2}\d{1,8}$/.test(cin)) champs.cin = 'Le CIN doit être 1 ou 2 lettres suivies de chiffres (ex. AB123456).';
   if (Object.keys(champs).length) throw erreurs.validation('Vérifiez les champs indiqués.', champs);
   return {
-    nom, age, cin, dateDebut, avanceHebdo: avanceHebdo ?? 200, salaireJournalier,
+    nom, age, cin, dateDebut, salaireJournalier,
   };
 }
 
@@ -113,7 +124,7 @@ function cinDejaPris(e) {
 }
 
 const instantane = (r) => ({
-  nom: r.nom, age: r.age, cin: r.cin, dateDebut: r.date_debut, avanceHebdo: r.avance_hebdo, salaireJournalier: r.salaire_journalier,
+  nom: r.nom, age: r.age, cin: r.cin, dateDebut: r.date_debut, salaireJournalier: r.salaire_journalier,
 });
 
 export async function ajouterEmploye(bandeId, corps) {
@@ -122,14 +133,14 @@ export async function ajouterEmploye(bandeId, corps) {
     return await transaction(async (client) => {
       await verrouillerBande(client, bandeId);
       const { rows: [r] } = await client.query(
-        `INSERT INTO employe (bande_id, nom, age, cin, date_debut, avance_hebdo, salaire_journalier)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [bandeId, v.nom, v.age, v.cin, v.dateDebut, v.avanceHebdo, v.salaireJournalier],
+        `INSERT INTO employe (bande_id, nom, age, cin, date_debut, salaire_journalier)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [bandeId, v.nom, v.age, v.cin, v.dateDebut, v.salaireJournalier],
       );
       await journaliser(client, {
         bandeId, module: 'employes', action: 'creation', entiteId: r.id,
         description: `Employé ajouté : ${v.nom} (CIN ${v.cin}), début le ${dateFr(v.dateDebut)}, `
-          + `avance ${montantFr(v.avanceHebdo)} par semaine, salaire ${montantFr(v.salaireJournalier)} par jour`,
+          + `salaire ${montantFr(v.salaireJournalier)} par jour`,
         apres: instantane(r),
       });
       return etat(client, bandeId);
@@ -144,7 +155,6 @@ const LIBELLES = {
   age: ['âge', (x) => `${x} ans`],
   cin: ['CIN', (x) => x],
   dateDebut: ['début', dateFr],
-  avanceHebdo: ['avance hebdomadaire', montantFr],
   salaireJournalier: ['salaire journalier', montantFr],
 };
 
@@ -163,6 +173,14 @@ export async function modifierEmploye(bandeId, employeId, corps) {
           dateDebut: `Un jour de repos est déclaré le ${dateFr(premier.jour)}, avant cette date de début.`,
         });
       }
+      const { rows: [premiere] } = await client.query(
+        'SELECT min(date_avance) AS jour FROM avance WHERE employe_id = $1', [employeId],
+      );
+      if (premiere.jour && premiere.jour < v.dateDebut) {
+        throw erreurs.validation('Vérifiez les champs indiqués.', {
+          dateDebut: `Une avance est déclarée le ${dateFr(premiere.jour)}, avant cette date de début.`,
+        });
+      }
       const avant = instantane(r);
       const changements = Object.keys(LIBELLES)
         .filter((k) => avant[k] !== v[k])
@@ -170,10 +188,10 @@ export async function modifierEmploye(bandeId, employeId, corps) {
       if (!changements.length) return etat(client, bandeId);
 
       const { rows: [maj] } = await client.query(
-        `UPDATE employe SET nom = $3, age = $4, cin = $5, date_debut = $6, avance_hebdo = $7, salaire_journalier = $8,
+        `UPDATE employe SET nom = $3, age = $4, cin = $5, date_debut = $6, salaire_journalier = $7,
                 modifie_le = now()
           WHERE id = $1 AND bande_id = $2 RETURNING *`,
-        [employeId, bandeId, v.nom, v.age, v.cin, v.dateDebut, v.avanceHebdo, v.salaireJournalier],
+        [employeId, bandeId, v.nom, v.age, v.cin, v.dateDebut, v.salaireJournalier],
       );
       await journaliser(client, {
         bandeId, module: 'employes', action: 'modification', entiteId: employeId,
@@ -238,6 +256,60 @@ export async function annulerRepos(bandeId, employeId, jourIso) {
   });
 }
 
+/** An advance paid to the worker: amount and date, as many as needed. Returns it for the receipt. */
+export async function declarerAvance(bandeId, employeId, corps) {
+  return transaction(async (client) => {
+    await verrouillerBande(client, bandeId);
+    const r = await lireUn(client, bandeId, employeId);
+    if (r.date_depart) throw erreurs.conflit('Cet employé est parti : son compte est réglé, on ne peut plus lui donner d’avance.');
+    const { rows: [{ aujourdhui }] } = await client.query('SELECT current_date AS aujourdhui');
+    const champs = {};
+    const [montant, eMontant] = nombre(corps?.montant, { nom: 'Le montant', max: 100000, obligatoire: true });
+    if (eMontant) champs.montant = eMontant;
+    else if (montant <= 0) champs.montant = 'Le montant doit être supérieur à 0.';
+    const [jour, eJour] = date(corps?.date, { nom: 'La date' });
+    if (eJour) champs.date = eJour;
+    else if (jour < r.date_debut) champs.date = `La date ne peut pas être avant son début (${dateFr(r.date_debut)}).`;
+    else if (jour > aujourdhui) champs.date = 'La date ne peut pas être dans le futur.';
+    const [note, eNote] = texte(corps?.note ?? '', { nom: 'La remarque', min: 0, max: 200 });
+    if (eNote) champs.note = eNote;
+    if (Object.keys(champs).length) throw erreurs.validation('Vérifiez les champs indiqués.', champs);
+
+    const { rows: [a] } = await client.query(
+      'INSERT INTO avance (employe_id, date_avance, montant, note) VALUES ($1, $2, $3, $4) RETURNING *',
+      [employeId, jour, montant, note || null],
+    );
+    const avance = avanceJson(a);
+    await journaliser(client, {
+      bandeId, module: 'employes', action: 'creation', entiteId: employeId,
+      description: `Avance de ${montantFr(montant)} donnée à ${r.nom} le ${dateFr(jour)}${note ? ` (${note})` : ''}`,
+      apres: { employe: r.nom, ...avance },
+    });
+    return { ...(await etat(client, bandeId)), avance };
+  });
+}
+
+/** Deletes an advance entered by mistake (password). Not possible once the worker has left. */
+export async function supprimerAvance(bandeId, employeId, avanceId, motDePasse, utilisateurId) {
+  return transaction(async (client) => {
+    await exigerMotDePasse(client, utilisateurId, motDePasse);
+    await verrouillerBande(client, bandeId);
+    const r = await lireUn(client, bandeId, employeId);
+    if (r.date_depart) throw erreurs.conflit('Cet employé est parti : son compte est réglé et ne peut plus être modifié.');
+    const { rows: [a] } = await client.query(
+      'DELETE FROM avance WHERE id = $1 AND employe_id = $2 RETURNING *', [avanceId, employeId],
+    );
+    if (!a) throw erreurs.introuvable('Cette avance n’existe pas ou a déjà été supprimée.');
+    const avance = avanceJson(a);
+    await journaliser(client, {
+      bandeId, module: 'employes', action: 'suppression', entiteId: employeId,
+      description: `Avance supprimée pour ${r.nom} : ${montantFr(avance.montant)} du ${dateFr(avance.date)}`,
+      avant: { employe: r.nom, ...avance },
+    });
+    return etat(client, bandeId);
+  });
+}
+
 /**
  * The worker leaves ("Supprimer"): password, departure date, final settlement.
  * The record is kept (Anciens employés) so the wages stay in the costs and the receipt can be reprinted.
@@ -258,6 +330,12 @@ export async function enregistrerDepart(bandeId, employeId, corps, utilisateurId
         'SELECT min(jour) AS jour FROM jour_repos WHERE employe_id = $1 AND jour > $2', [employeId, depart],
       );
       if (apres.jour) erreur = `Un jour de repos est déclaré le ${dateFr(apres.jour)}, après cette date de départ.`;
+    }
+    if (!erreur) {
+      const { rows: [apres] } = await client.query(
+        'SELECT max(date_avance) AS jour FROM avance WHERE employe_id = $1 AND date_avance > $2', [employeId, depart],
+      );
+      if (apres.jour) erreur = `Une avance est déclarée le ${dateFr(apres.jour)}, après cette date de départ.`;
     }
     if (erreur) throw erreurs.validation('Vérifiez les champs indiqués.', { dateDepart: erreur });
 

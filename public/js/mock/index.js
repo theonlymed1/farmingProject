@@ -252,7 +252,8 @@ const ecrireEmployesMock = (l) => sessionStorage.setItem('mock-employes', JSON.s
 const aujourdhuiMock = () => new Date().toISOString().slice(0, 10);
 function employesDe(id) {
   return lireEmployesMock().filter((e) => e.bandeId === Number(id))
-    .map((e) => ({ ...e, actif: !e.dateDepart, compte: compteMock(e, e.joursRepos.map((j) => j.date), aujourdhuiMock()) }))
+    .map((e) => ({ ...e, avances: e.avances ?? [] }))
+    .map((e) => ({ ...e, actif: !e.dateDepart, compte: compteMock(e, e.joursRepos.map((j) => j.date), e.avances, aujourdhuiMock()) }))
     .sort((a, b) => Number(!a.actif) - Number(!b.actif) || a.nom.localeCompare(b.nom, 'fr'));
 }
 function resumeEmployesMock(id) {
@@ -262,6 +263,7 @@ function resumeEmployesMock(id) {
     nombreActifs: l.filter((e) => e.actif).length,
     nombrePartis: l.filter((e) => !e.actif).length,
     totalAvances: somme((e) => e.compte.totalAvances),
+    nombreAvances: l.reduce((t, e) => t + e.compte.nombreAvances, 0),
     cout: somme((e) => e.compte.cout),
     soldeActifs: somme((e) => (e.actif ? e.compte.solde : 0)),
   };
@@ -280,7 +282,7 @@ function validerEmployeMock(c, idIgnore, bandeId) {
   if (c.salaireJournalier == null) champs.salaireJournalier = 'Le salaire journalier est obligatoire.';
   if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
   return {
-    nom: c.nom.trim().replace(/\s+/g, ' '), age: c.age, cin, dateDebut: c.dateDebut, avanceHebdo: c.avanceHebdo ?? 200, salaireJournalier: c.salaireJournalier,
+    nom: c.nom.trim().replace(/\s+/g, ' '), age: c.age, cin, dateDebut: c.dateDebut, salaireJournalier: c.salaireJournalier,
   };
 }
 function majEmployeMock(eid, f) {
@@ -411,6 +413,41 @@ const routes = [
     reponse: ({ params: [id, eid, jour] }) => {
       exigerConnexion();
       majEmployeMock(eid, (e) => { e.joursRepos = e.joursRepos.filter((j) => j.date !== jour); });
+      return etatEmployes(id);
+    },
+  },
+  {
+    methode: 'POST',
+    motif: /^\/bandes\/(\d+)\/employes\/(\d+)\/avances$/,
+    reponse: ({ params: [id, eid], corps }) => {
+      exigerConnexion();
+      let avance;
+      majEmployeMock(eid, (e) => {
+        const champs = {};
+        if (!(corps.montant > 0)) champs.montant = corps.montant == null ? 'Le montant est obligatoire.' : 'Le montant doit être supérieur à 0.';
+        if (!corps.date) champs.date = 'La date est obligatoire (format jj/mm/aaaa).';
+        else if (corps.date < e.dateDebut) champs.date = 'La date ne peut pas être avant son début.';
+        if (Object.keys(champs).length) throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', champs);
+        e.avances = e.avances ?? [];
+        avance = {
+          id: Math.max(0, ...lireEmployesMock().flatMap((x) => (x.avances ?? []).map((a) => a.id))) + 1,
+          date: corps.date, montant: corps.montant, note: corps.note?.trim() || null, creeLe: new Date().toISOString(),
+        };
+        e.avances.push(avance);
+        e.avances.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+      });
+      return { ...etatEmployes(id), avance };
+    },
+  },
+  {
+    methode: 'DELETE',
+    motif: /^\/bandes\/(\d+)\/employes\/(\d+)\/avances\/(\d+)$/,
+    reponse: ({ params: [id, eid, aid], corps }) => {
+      exigerConnexion();
+      if (corps.motDePasse !== MOCK_MOT_DE_PASSE) {
+        throw new ErreurApi(400, 'VALIDATION', 'Vérifiez les champs indiqués.', { motDePasse: corps.motDePasse ? 'Mot de passe incorrect.' : 'Saisissez votre mot de passe pour confirmer.' });
+      }
+      majEmployeMock(eid, (e) => { e.avances = (e.avances ?? []).filter((a) => a.id !== Number(aid)); });
       return etatEmployes(id);
     },
   },
@@ -648,7 +685,7 @@ const routes = [
     reponse: () => ({
       connecte: etat.connecte,
       identifiant: etat.connecte ? MOCK_IDENTIFIANT : null,
-      nomExploitation: 'Firme Sidi Aidi',
+      nomExploitation: 'Ferme Sidi Aidi',
     }),
   },
   {
@@ -690,7 +727,7 @@ const routes = [
         statut: 'ok',
         application: '0.2.0 (simulation)',
         base: 'PostgreSQL (simulé)',
-        nomExploitation: 'Firme Sidi Aidi',
+        nomExploitation: 'Ferme Sidi Aidi',
         heure: new Date().toISOString(),
       };
     },

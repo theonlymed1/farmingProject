@@ -87,7 +87,7 @@ Public. Tells the page whether someone is logged in.
 Response 200:
 
 ```json
-{ "data": { "connecte": true, "identifiant": "admin", "nomExploitation": "Firme Sidi Aidi" } }
+{ "data": { "connecte": true, "identifiant": "admin", "nomExploitation": "Ferme Sidi Aidi" } }
 ```
 
 Historique: no.
@@ -398,49 +398,56 @@ With `vendeur`: `types` lists that seller's types first, `produits` only that se
 
 ## Phase 6 — Employés
 
-Workers of a Bande. Advances are **not entered**: one advance is counted per **full week** since the
-start date. The pay rule (`server/modules/employes/calcul.js`, copied in `public/js/employes-calcul.js`):
+Workers of a Bande. **Since 0.11** advances are declared one by one by the admin (amount + date, any number
+per week; see "Avances" below). Before, one advance per full week was counted automatically: migration 012
+turned those into real advances (one per full week, on its last day) so no balance changed. The pay rule (`server/modules/employes/calcul.js`, copied in `public/js/employes-calcul.js`):
 
 | Value | Rule |
 | --- | --- |
 | `joursPeriode` | start date → departure date (or today), both included |
 | `joursRepos` | rest days declared inside that period |
 | `joursTravailles` | `joursPeriode` − `joursRepos` |
-| `semaines` | ⌊ `joursPeriode` ÷ 7 ⌋ |
-| `totalAvances` | `semaines` × `avanceHebdo` |
+| `nombreAvances` | advances dated up to the end of the period |
+| `totalAvances` | sum of their amounts |
 | `salaireTotal` | `joursTravailles` × `salaireJournalier` |
 | `solde` | `salaireTotal` − `totalAvances` (negative = the worker owes) |
 | `cout` | current worker: `totalAvances` · departed: `totalAvances` + max(0, `solde`) |
 
-Example: 30 days, 100 DH/day, 200 DH/week → 3 000 − 800 = **2 200 DH**.
+Example: 30 days at 100 DH/day, 4 advances of 200 DH → 3 000 − 800 = **2 200 DH**.
 
 An employee:
 
 ```json
 {
   "id": 1, "nom": "Ahmed Alaoui", "age": 34, "cin": "AB123456", "dateDebut": "2026-10-10",
-  "avanceHebdo": 200, "salaireJournalier": 110, "dateDepart": "2026-11-08", "actif": false,
+  "salaireJournalier": 110, "dateDepart": "2026-11-08", "actif": false,
   "joursRepos": [ { "date": "2026-10-17", "note": "malade" } ],
-  "compte": { "jusquAu": "2026-11-08", "joursPeriode": 30, "joursRepos": 1, "joursTravailles": 29, "semaines": 4,
+  "avances": [ { "id": 5, "date": "2026-10-16", "montant": 200, "note": null, "creeLe": "…" }, "…" ],
+  "compte": { "jusquAu": "2026-11-08", "joursPeriode": 30, "joursRepos": 1, "joursTravailles": 29, "nombreAvances": 4,
               "totalAvances": 800, "salaireTotal": 3190, "solde": 2390, "cout": 3190 }
 }
 ```
 
 Validation: `nom` 1–100 · `age` 15–90 · `cin` 1–2 letters + digits (saved without spaces, upper case;
-unique among the Bande's current workers → 409) · `dateDebut` · `avanceHebdo` ≥ 0 (default 200) ·
-`salaireJournalier` required ≥ 0. A departed worker can't be edited or get rest days (409).
+unique among the Bande's current workers → 409) · `dateDebut` (not after his first rest day or advance) ·
+`salaireJournalier` required ≥ 0. A departed worker can't be edited or get rest days or advances (409).
 
 Every endpoint returns `{ "data": { "bande", "employes": [ current first, then departed ], "resume" } }` with
-`resume = { nombreActifs, nombrePartis, totalAvances, cout, soldeActifs }`.
+`resume = { nombreActifs, nombrePartis, totalAvances, nombreAvances, cout, soldeActifs }`.
 
 | Endpoint | Body | Historique |
 | --- | --- | --- |
 | `GET /bandes/:bandeId/employes` | — | no |
-| `POST /bandes/:bandeId/employes` | employee fields | "Employé ajouté : … (CIN …), début le …, avance … par semaine, salaire … par jour" |
+| `POST /bandes/:bandeId/employes` | employee fields | "Employé ajouté : … (CIN …), début le …, salaire … par jour" |
 | `PUT /bandes/:bandeId/employes/:id` | employee fields | "Employé modifié (…) : salaire journalier 100,00 DH → 110,00 DH" |
 | `POST /bandes/:bandeId/employes/:id/repos` | `{ "date", "note"? }` (start → today, not twice) | "Jour de repos déclaré pour … : 17/10/2026 (malade)" |
 | `DELETE /bandes/:bandeId/employes/:id/repos/:date` | — | "Jour de repos annulé pour … : …" |
+| `POST /bandes/:bandeId/employes/:id/avances` | `{ "montant", "date", "note"? }` — montant > 0, date start → today | "Avance de 300,00 DH donnée à … le 18/11/2026 (souk)" |
+| `DELETE /bandes/:bandeId/employes/:id/avances/:avanceId` | `{ "motDePasse" }` | "Avance supprimée pour … : 300,00 DH du 18/11/2026" |
 | `POST /bandes/:bandeId/employes/:id/depart` | `{ "dateDepart", "motDePasse" }` | "Départ d’Ahmed Alaoui le 08/11/2026 : 29 jours travaillés × 110,00 DH = 3 190,00 DH, avances 800,00 DH, reste à payer 2 390,00 DH" |
+
+`POST …/avances` answers 201 with `avance` = the advance just saved, for its printable receipt (farm, worker,
+CIN, Bande, date, amount, remark if any, and the two signatures — no account balance on it). The departure date can't be before an advance.
 
 The departure ("Supprimer" in the menu) keeps the worker in "Anciens employés"; its response also has
 `depart` = the departed employee, used for the receipt. The Charges summary now has `resume.employes`
@@ -565,3 +572,12 @@ Customers of earlier sales (all Bandes), most frequent first:
 History (module `ventes`): "Vente n° V2026-0003 à Ferme Atlas SARL (société), le 14/11/2026 — 300 mâles et
 200 femelles, 1 275,5 kg, 19 132,50 DH", "Vente n° … modifiée : prix … → …", "Vente supprimée : … (les oiseaux
 reviennent dans le troupeau)".
+
+## 0.11 — Ferme, avances, thème sombre
+
+- Migration 012: the farm name becomes "Ferme Sidi Aidi" (only if it was still "Firme Sidi Aidi"); table
+  `avance`; column `employe.avance_hebdo` removed (see Phase 6).
+- Dark theme: `public/js/theme.js` (classic script in every page's `<head>`, before the CSS) sets
+  `<html data-theme="clair|sombre">` from the choice kept in the browser (`localStorage["avicole-theme"]` =
+  `clair`, `sombre` or `auto` = like Windows). `base.css` redefines the color variables for
+  `[data-theme="sombre"]`, on screen only: printing always uses the light colors.
