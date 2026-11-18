@@ -1,0 +1,42 @@
+<!--
+  Windows service of the Plateforme avicole (WinSW 2.x: https://github.com/winsw/winsw).
+  installateur/construire.ps1 copies WinSW-x64.exe next to this file as PlateformeAvicole.exe;
+  the installer then runs "PlateformeAvicole.exe install" and "start".
+
+  - Starts with Windows (even before anyone logs in) and restarts by itself if it stops.
+  - Runs as NT AUTHORITY\LocalService: a built-in account WITHOUT administrator rights
+    (PostgreSQL refuses to run as an administrator). The installer gives this account the right to
+    write in C:\ProgramData\PlateformeAvicole (data, backups, logs) and in the copy folder chosen.
+  - Stopping the service sends Ctrl+C: the server stops PostgreSQL cleanly before exiting.
+-->
+<service>
+  <id>PlateformeAvicole</id>
+  <name>Plateforme avicole</name>
+  <description>Plateforme de gestion avicole (serveur local : application + base de données). Ouvrir http://localhost:3000</description>
+
+  <executable>%BASE%\..\node\node.exe</executable>
+  <arguments>"%BASE%\..\app\server\index.js"</arguments>
+  <workingdirectory>%BASE%\..\app</workingdirectory>
+  <env name="NODE_ENV" value="production"/>
+
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>false</delayedAutoStart>
+  <serviceaccount>
+    <domain>NT AUTHORITY</domain>
+    <user>LocalService</user>
+  </serviceaccount>
+
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+
+  <stoptimeout>60 sec</stoptimeout>
+  <stopparentprocessfirst>true</stopparentprocessfirst>
+
+  <logpath>%ProgramData%\PlateformeAvicole\journaux</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>5120</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+</service>

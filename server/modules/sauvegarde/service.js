@@ -22,6 +22,8 @@ import config from '../../config.js';
 const FORMAT = 'plateforme-avicole-sauvegarde';
 const VERSION_FORMAT = 1;
 const HORS_SAUVEGARDE = ['schema_migrations', 'utilisateur', 'session'];
+// Settings of THIS PC (automatic backups, copy folder): a restore keeps the current values.
+const PARAMETRES_DU_PC = ['dossier_copie', 'derniere_copie', 'derniere_sauvegarde_auto'];
 const id = (nom) => `"${nom.replace(/"/g, '""')}"`;
 const sha256 = (texte) => crypto.createHash('sha256').update(texte, 'utf8').digest('hex');
 const deux = (n) => String(n).padStart(2, '0');
@@ -51,8 +53,8 @@ export async function etatSauvegarde() {
   };
 }
 
-/** Builds the backup file: { nomFichier, contenu (Buffer) }. Records the date and a history line. */
-export async function creerSauvegarde() {
+/** Builds the backup content from one consistent snapshot: { entete, contenu (Buffer), slug }. */
+export async function construireSauvegarde() {
   return transaction(async (client) => {
     // Same snapshot for every table, even if something is saved meanwhile.
     await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
@@ -83,11 +85,17 @@ export async function creerSauvegarde() {
     const contenu = zlib.gzipSync(Buffer.from(`${JSON.stringify(entete)}\n${donnees}`, 'utf8'));
     const slug = nomExploitation.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
       .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'ferme';
-    const m = maintenant;
+    return { entete, contenu, slug };
+  });
+}
+
+/** Manual download (Paramètres): { nomFichier, contenu, entete }. Records the date and a history line. */
+export async function creerSauvegarde() {
+  return construireSauvegarde().then(async ({ entete, contenu, slug }) => {
+    const m = new Date(entete.creeLe);
     const nomFichier = `sauvegarde-${slug}-${m.getFullYear()}-${deux(m.getMonth() + 1)}-${deux(m.getDate())}`
       + `-${deux(m.getHours())}h${deux(m.getMinutes())}.avicole`;
-    return { nomFichier, contenu, entete };
-  }).then(async (resultat) => {
+    const resultat = { nomFichier, contenu, entete };
     // Written after the read-only snapshot, in its own short transaction.
     await transaction(async (client) => {
       await client.query(
@@ -196,11 +204,16 @@ export async function restaurerSauvegarde(contenu, motDePasse, utilisateurId) {
   return transaction(async (client) => {
     await exigerMotDePasse(client, utilisateurId, motDePasse);
 
-    // 1. Keep the account and the sessions (the farmer stays logged in, with his current password).
+    // 1. Keep the account and the sessions (the farmer stays logged in, with his current password),
+    //    and the settings of this PC.
     const garde = {};
     for (const t of ['utilisateur', 'session']) {
       garde[t] = (await client.query(`SELECT COALESCE(jsonb_agg(to_jsonb(x)), '[]'::jsonb)::text AS l FROM ${id(t)} x`)).rows[0].l;
     }
+    const { rows: parametresPc } = await client.query(
+      'SELECT cle, valeur FROM parametre WHERE cle IN (SELECT jsonb_array_elements_text($1::jsonb))',
+      [JSON.stringify(PARAMETRES_DU_PC)],
+    );
 
     // 2. Empty the database: every view and table of the application.
     const { rows: vues } = await client.query("SELECT viewname FROM pg_views WHERE schemaname = 'public'");
@@ -236,7 +249,10 @@ export async function restaurerSauvegarde(contenu, motDePasse, utilisateurId) {
     const restauration = {
       le: new Date().toISOString(), sauvegardeDu: entete.creeLe, application: entete.application, enregistrements: total,
     };
-    for (const [cle, valeur] of [['derniere_restauration', JSON.stringify(restauration)], ['derniere_sauvegarde', entete.creeLe]]) {
+    await client.query('DELETE FROM parametre WHERE cle IN (SELECT jsonb_array_elements_text($1::jsonb))', [JSON.stringify(PARAMETRES_DU_PC)]);
+    const aRemettre = [['derniere_restauration', JSON.stringify(restauration)], ['derniere_sauvegarde', entete.creeLe],
+      ...parametresPc.map((p) => [p.cle, p.valeur])];
+    for (const [cle, valeur] of aRemettre) {
       await client.query(
         `INSERT INTO parametre (cle, valeur) VALUES ($1, $2) ON CONFLICT (cle) DO UPDATE SET valeur = EXCLUDED.valeur`,
         [cle, valeur],

@@ -700,3 +700,24 @@ A backup from a newer version (unknown migrations) is refused with a clear messa
 
 `server/db/migrations.js` now exports `listeMigrations()` and `appliquerFichiers(client, fichiers)` for this.
 The "Les bandes" page shows a reminder when no backup was downloaded for 7 days.
+
+## 0.16 — Sauvegardes automatiques + installateur Windows (phase 8)
+
+Automatic backups (`server/modules/sauvegarde/automatique.js`): checked 2 minutes after start, then every hour.
+If today's file doesn't exist, `<données>/sauvegardes/sauvegarde-auto-YYYY-MM-DD.avicole` is written (same
+format as the manual download). The 30 most recent are kept; other files in the folder are never touched.
+If a copy folder is set, the file is copied there too (30 kept there as well). A failed copy (disk unplugged…)
+never prevents the local backup; it is recorded and shown in Paramètres and on "Les bandes".
+These settings of the PC (`dossier_copie`, `derniere_copie`, `derniere_sauvegarde_auto`) survive a restore.
+
+| Endpoint | |
+| --- | --- |
+| `GET /sauvegarde` | now also `automatique: { dossierLocal, aGarder, fichiers: [{ nom, jour, taille, modifieLe }], derniereAuto, dossierCopie, derniereCopie: { dossier, le, fichier, ok? , erreur? } }` |
+| `POST /sauvegarde/automatiques` | makes one now (and copies it) → 201 `{ fait, automatique }` |
+| `GET /sauvegarde/automatiques/:nom` | downloads one (name strictly `sauvegarde-auto-YYYY-MM-DD.avicole`) |
+| `POST /sauvegarde/automatiques/:nom/restaurer` | restores one; password in `X-Mot-De-Passe`, like `/restaurer` |
+| `PUT /sauvegarde/dossier-copie` | `{ "dossier": "D:\\Sauvegardes ferme" }`: must be absolute and writable (checked by writing a test file), then the latest backup is copied there. `""` = no copy. |
+
+The Windows installer writes the folder chosen during installation in `<données>/dossier-copie.txt`; the server
+applies it at start and deletes the file. The initial credentials file is now UTF-8 with BOM and CRLF.
+Installer: see `installateur/README.md`.

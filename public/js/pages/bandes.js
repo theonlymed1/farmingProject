@@ -48,19 +48,26 @@ function afficher() {
   liste.innerHTML = bandes.map(carte).join('');
 }
 
-/** Reminder when no backup was downloaded for 7 days (and there is something to lose). */
+/**
+ * Reminder when nothing was saved OFF this PC for 7 days: no backup downloaded and no successful copy
+ * to the copy folder. Also says when the automatic copy fails (disk unplugged…).
+ */
 async function rappelSauvegarde() {
   if (!bandes.length) return;
   try {
-    const { derniereSauvegarde } = await api.get('/sauvegarde');
-    const jours = derniereSauvegarde ? Math.floor((Date.now() - new Date(derniereSauvegarde).getTime()) / 864e5) : null;
-    if (jours !== null && jours < 7) return;
-    document.getElementById('rappel-sauvegarde').innerHTML = `
-      <div class="alerte alerte-info rappel-sauvegarde">
-        ${jours === null ? 'Aucune sauvegarde des données n’a encore été téléchargée.' : `Dernière sauvegarde des données : il y a ${jours} jours.`}
-        Si le PC tombe en panne, une sauvegarde permet de tout récupérer.
-        <a href="/pages/parametres.html#titre-sauvegarde">Télécharger une sauvegarde</a>
-      </div>`;
+    const { derniereSauvegarde, automatique } = await api.get('/sauvegarde');
+    const copie = automatique?.derniereCopie;
+    const dates = [derniereSauvegarde, copie?.ok ? copie.le : null].filter(Boolean).map((d) => new Date(d).getTime());
+    const jours = dates.length ? Math.floor((Date.now() - Math.max(...dates)) / 864e5) : null;
+    const lien = '<a href="/pages/parametres.html#titre-sauvegarde">Paramètres → Sauvegarde</a>';
+    let texte = '';
+    if (copie && !copie.ok) {
+      texte = `La copie automatique des sauvegardes n’a pas pu être faite : ${echapper(copie.erreur)} Voir ${lien}.`;
+    } else if (jours === null || jours >= 7) {
+      texte = `${jours === null ? 'Aucune sauvegarde des données n’a encore été mise hors de ce PC.' : `Dernière sauvegarde mise hors de ce PC : il y a ${jours} jours.`}
+        Si le PC tombe en panne, une sauvegarde permet de tout récupérer : ${lien}.`;
+    }
+    if (texte) document.getElementById('rappel-sauvegarde').innerHTML = `<div class="alerte alerte-info rappel-sauvegarde">${texte}</div>`;
   } catch { /* the reminder is a help, never a blocker */ }
 }
 

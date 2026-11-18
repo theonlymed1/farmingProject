@@ -30,7 +30,15 @@ On the first start the server creates the single account (`admin`) with a random
 password. It is printed in the console and saved in `.donnees/identifiants-initiaux.txt`
 (on the farmer's PC: `C:\ProgramData\PlateformeAvicole\`). Note it, then delete the file.
 The app has no "forgotten password" option on purpose; if the farmer loses it, you reset it
-on his PC with `npm run mot-de-passe`.
+on his PC with `C:\Program Files\Plateforme avicole\nouveau-mot-de-passe.cmd`
+(in development: `npm run mot-de-passe`).
+
+## The farmer's PC: installer, service, backups
+
+`installateur/` builds one `.exe` (Node.js + PostgreSQL + the app + a Windows service + a desktop icon).
+See [installateur/README.md](installateur/README.md). Data and daily backups live in
+`C:\ProgramData\PlateformeAvicole\`, so updating or uninstalling the program never touches them.
+Backups: Paramètres → Sauvegarde (download / restore, automatic daily backups, copy folder).
 
 Database files live in `.donnees/` (git-ignored). To start from an empty database:
 stop everything (`npm run db:stop`), delete `.donnees/`, run `npm run dev` again.
@@ -45,7 +53,7 @@ Answers then come from `public/js/mock/`. An orange **MODE SIMULATION** badge sh
 
 | Folder | Owner | Rule |
 | --- | --- | --- |
-| `server/`, `scripts/`, `installer/` | Mohamed | Yazid doesn't edit |
+| `server/`, `scripts/`, `installateur/` | Mohamed | Yazid doesn't edit |
 | `public/` | Yazid | Mohamed doesn't edit |
 | `docs/api.md` | Both | Change by pull request, approved by the other |
 

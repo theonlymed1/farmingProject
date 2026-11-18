@@ -5,6 +5,7 @@ import { demarrerBase, arreterBase } from './db/postgres.js';
 import { appliquerMigrations } from './db/migrations.js';
 import { creerApp } from './app.js';
 import { assurerUtilisateurParDefaut, nettoyerSessions } from './modules/auth/service.js';
+import { planifierSauvegardes, appliquerChoixInstallateur } from './modules/sauvegarde/automatique.js';
 
 let serveur = null;
 let arretEnCours = false;
@@ -26,6 +27,9 @@ async function main() {
   await nettoyerSessions();
   // Remove expired sessions every hour (unref: doesn't keep the process alive).
   setInterval(() => nettoyerSessions().catch((e) => console.error('[auth]', e.message)), 60 * 60 * 1000).unref();
+  // Automatic daily backup (and its copy), checked every hour.
+  await appliquerChoixInstallateur().catch((e) => console.error('[sauvegarde]', e.message));
+  planifierSauvegardes();
 
   const app = creerApp();
   serveur = app.listen(config.port, config.host, () => {

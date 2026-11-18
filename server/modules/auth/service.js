@@ -43,15 +43,16 @@ export async function assurerUtilisateurParDefaut() {
     // Written BEFORE the commit: if the file can't be written, the account isn't created either
     // (otherwise it would exist with a password nobody has seen).
     fs.mkdirSync(config.dossierDonnees, { recursive: true });
-    fs.writeFileSync(fichier, [
+    // BOM + CRLF: opens correctly in Windows Notepad; the installer reads the 2nd and 3rd lines.
+    fs.writeFileSync(fichier, `\uFEFF${[
       'Plateforme avicole — identifiants initiaux',
       `Identifiant : ${identifiant}`,
       `Mot de passe : ${motDePasse}`,
       '',
       'Notez-les, puis supprimez ce fichier.',
-      'Pour choisir un autre mot de passe : npm run mot-de-passe -- "NouveauMotDePasse"',
+      'Pour choisir un autre mot de passe : Paramètres → Changer le mot de passe.',
       '',
-    ].join('\n'), 'utf8');
+    ].join('\r\n')}`, 'utf8');
   });
 
   console.log('');

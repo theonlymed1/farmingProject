@@ -417,3 +417,11 @@ a.tuile-fonction:hover { background: var(--vert-clair); box-shadow: var(--ombre)
 .sauvegarde-ancienne { padding: var(--e2) var(--e3); background: var(--ambre-100); color: var(--texte-ambre); border-radius: var(--rayon); }
 .actions-sauvegarde { margin: var(--e3) 0 var(--e4); }
 #fichier-sauvegarde { padding: var(--e2); }
+.chemin { font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; padding: 1px var(--e1); background: var(--gris-100); border-radius: 4px; word-break: break-all; }
+.bouton-petit { padding: var(--e1) var(--e3); font-size: 0.9rem; margin-left: var(--e2); }
+.form-dossier-copie { margin-top: var(--e3); }
+.actions-dossier { display: flex; gap: var(--e3); align-items: center; }
+.alerte-copie { margin-top: var(--e3); }
+.liste-auto { margin: var(--e3) 0 var(--e4); }
+.liste-auto summary { cursor: pointer; color: var(--couleur-lien); }
+.liste-auto table { margin-top: var(--e2); }
