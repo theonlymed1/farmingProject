@@ -4,6 +4,7 @@
 // and when they expire, see the car's information and charges (printable), or delete the car.
 // Every amount counts in the cost of the Bande.
 import { monterLayout } from '../layout.js';
+import { imprimerHtml } from '../impression.js';
 import { api } from '../api.js';
 import {
   formaterDate, formaterMontant, formaterNombre, aujourdhui,
@@ -66,17 +67,17 @@ function tuiles() {
       <div class="indicateur">
         <span class="indicateur-libelle">Véhicules</span>
         <span class="indicateur-valeur">${formaterNombre(r.nombre)}</span>
-        <span class="indicateur-detail">dans cette bande</span>
+        <span class="indicateur-detail explication">dans cette bande</span>
       </div>
       <div class="indicateur">
         <span class="indicateur-libelle">Charges déclarées</span>
         <span class="indicateur-valeur">${formaterNombre(r.nombreCharges)}</span>
-        <span class="indicateur-detail">vidange, pneus, carburant…</span>
+        <span class="indicateur-detail explication">vidange, pneus, carburant…</span>
       </div>
       <div class="indicateur indicateur-fort">
         <span class="indicateur-libelle">Total des charges des véhicules</span>
         <span class="indicateur-valeur">${formaterMontant(r.total)}</span>
-        <span class="indicateur-detail">compté dans le coût de la bande</span>
+        <span class="indicateur-detail explication">compté dans le coût de la bande</span>
       </div>
     </section>`;
 }
@@ -222,7 +223,33 @@ function ouvrirMenu(bouton) {
   })[action](vehicule));
 }
 
-const ACTIONS_CHARGE = [['modifier', 'Modifier'], ['supprimer', 'Supprimer']];
+const ACTIONS_CHARGE = [['imprimer', 'Imprimer'], ['modifier', 'Modifier'], ['supprimer', 'Supprimer']];
+
+/** One charge on paper: what it is, for which vehicle, how much. */
+function htmlFicheCharge(v, c) {
+  const doc = DOCUMENTS[c.categorie];
+  return `
+    <div class="recu">
+      <div class="recu-entete">
+        <strong>${echapper(nomExploitation)}</strong>
+        <span>${doc ? 'Document' : 'Charge'} du véhicule — bande « ${echapper(etat.bande.nom)} »</span>
+      </div>
+      <h2>${echapper(c.libelle)}</h2>
+      <dl class="liste-cles">
+        <dt>Véhicule</dt><dd>${echapper(titreVehicule(v))}</dd>
+        <dt>Matricule</dt><dd><span class="matricule">${echapper(v.matricule)}</span></dd>
+        <dt>Date</dt><dd>${formaterDate(c.date)}</dd>
+        ${c.categorie === 'vidange' ? `
+        <dt>Kilométrage</dt><dd>${formaterKm(c.kilometrage)}</dd>
+        <dt>Prochaine vidange</dt><dd>à ${formaterKm(c.prochaineKm)}</dd>` : ''}
+        ${doc ? `
+        <dt>Durée</dt><dd>${dureeTexte(c.dureeMois)}</dd>
+        <dt>Expire le</dt><dd>${formaterDate(c.expireLe)}</dd>` : ''}
+        ${c.description ? `<dt>Description</dt><dd>${echapper(c.description)}</dd>` : ''}
+      </dl>
+      <p class="facture-total">Montant : <strong>${formaterMontant(c.montant)}</strong></p>
+    </div>`;
+}
 
 /** "⋯" of one charge: data-menu-charge="<car id>:<charge id>". */
 function ouvrirMenuCharge(bouton) {
@@ -231,6 +258,10 @@ function ouvrirMenuCharge(bouton) {
   const charge = vehicule.charges.find((c) => c.id === cid);
   const fiche = bouton.closest('dialog');
   ouvrirMenuActions(bouton, ACTIONS_CHARGE, async (action) => {
+    if (action === 'imprimer') {
+      imprimerHtml(htmlFicheCharge(vehicule, charge));
+      return;
+    }
     if (action === 'modifier') {
       fiche?.close();
       if (DOCUMENTS[charge.categorie]) declarerDocument(vehicule, charge.categorie, charge);
@@ -609,8 +640,8 @@ function htmlFiche(v, { actions = false } = {}) {
         <dt>Nom</dt><dd>${echapper(v.nom)}</dd>
         <dt>Modèle</dt><dd>${echapper(v.modele)}</dd>
         <dt>Matricule</dt><dd><span class="matricule">${echapper(v.matricule)}</span></dd>
-        <dt>Ajouté le</dt><dd>${formaterDate(v.creeLe.slice(0, 10))}</dd>
-        <dt>Charges</dt><dd>${v.nombreCharges ? pluriel(v.nombreCharges, 'charge') : 'aucune'}</dd>
+        <dt class="no-print">Ajouté le</dt><dd class="no-print">${formaterDate(v.creeLe.slice(0, 10))}</dd>
+        <dt class="no-print">Charges</dt><dd class="no-print">${v.nombreCharges ? pluriel(v.nombreCharges, 'charge') : 'aucune'}</dd>
         <dt>Dernière vidange</dt><dd>${v.vidange
     ? `${formaterDate(v.vidange.date)} à ${formaterKm(v.vidange.kilometrage)} — prochaine à <strong>${formaterKm(v.vidange.prochaineKm)}</strong>`
     : 'aucune'}</dd>
@@ -637,19 +668,6 @@ function htmlFiche(v, { actions = false } = {}) {
         </tfoot>
       </table>` : '<p class="texte-discret">Aucune charge déclarée pour ce véhicule.</p>'}
     </div>`;
-}
-
-function imprimerHtml(html) {
-  const zoneRecu = document.getElementById('zone-recu');
-  zoneRecu.innerHTML = html;
-  zoneRecu.hidden = false;
-  document.body.classList.add('impression-recu');
-  window.addEventListener('afterprint', () => {
-    document.body.classList.remove('impression-recu');
-    zoneRecu.hidden = true;
-    zoneRecu.innerHTML = '';
-  }, { once: true });
-  window.print();
 }
 
 function voirInfos(vehicule) {

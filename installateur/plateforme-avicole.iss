@@ -18,6 +18,7 @@
 #define Build "build"
 #define Service "PlateformeAvicole"
 #define DossierDonnees "{commonappdata}\PlateformeAvicole"
+; Careful in [Code]: a line must never START with # (e.g. #13#10), the preprocessor would read it as a directive.
 
 [Setup]
 AppId={{6F3B2C1A-8E4D-4B7A-9D2E-5C1F0A7B3E91}
@@ -207,6 +208,9 @@ begin
 
   { 1. Data folder, writable by the service. }
   AutoriserService(ExpandConstant('{#DossierDonnees}'));
+  { embedded-postgres sets the permissions of postgres.exe and initdb.exe at every start (fs.chmod):
+    without this, Windows refuses (EPERM) because Program Files is read-only for the service. }
+  AutoriserService(ExpandConstant('{app}\app\node_modules\@embedded-postgres\windows-x64\native\bin'));
 
   { 2. Copy folder chosen (first install only): the service may write there, the server reads it at start. }
   if (not MiseAJour) and (PageChoixCopie.SelectedValueIndex = 0) then begin
@@ -220,6 +224,8 @@ begin
   { 3. The Windows service: install, start. }
   WizardForm.StatusLabel.Caption := 'Démarrage de la plateforme (la première fois, cela peut prendre une minute)…';
   Exec(ExpandConstant('{app}\service\{#Service}.exe'), 'install', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  { Normal automatic start (not delayed): starts as soon as Windows boots. }
+  Exec(ExpandConstant('{sys}\sc.exe'), 'config {#Service} start= auto', '', SW_HIDE, ewWaitUntilTerminated, Code);
   Exec(ExpandConstant('{app}\service\{#Service}.exe'), 'start', '', SW_HIDE, ewWaitUntilTerminated, Code);
   ServicePret := AttendreServeur(120);
 
@@ -246,8 +252,8 @@ begin
       'Si elle ne s''ouvre toujours pas, les journaux sont dans C:\ProgramData\PlateformeAvicole\journaux.';
   WizardForm.FinishedLabel.Caption := Texte;
   if IdentifiantsInitiaux <> '' then
-    MsgBox('NOTEZ CES IDENTIFIANTS (ils sont demandés pour se connecter) :' + #13#10#13#10 + IdentifiantsInitiaux +
-      #13#10#13#10 + 'Ils sont aussi dans le fichier C:\ProgramData\PlateformeAvicole\identifiants-initiaux.txt : ' +
+    MsgBox('NOTEZ CES IDENTIFIANTS (ils sont demandés pour se connecter) :' + #13#10#13#10 +
+      IdentifiantsInitiaux + #13#10#13#10 + 'Ils sont aussi dans le fichier C:\ProgramData\PlateformeAvicole\identifiants-initiaux.txt : ' +
       'supprimez ce fichier après les avoir notés. Le mot de passe peut être changé dans Paramètres.',
       mbInformation, MB_OK);
 end;

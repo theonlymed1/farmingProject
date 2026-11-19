@@ -1,6 +1,7 @@
 // Ventes (?bande=…): declare, edit, delete (password) and print the sales of the Bande,
 // with a printable invoice (facture) for each sale. Sold birds leave the flock.
 import { monterLayout } from '../layout.js';
+import { imprimerHtml } from '../impression.js';
 import { api } from '../api.js';
 import {
   formaterDate, formaterMontant, formaterNombre, aujourdhui,
@@ -324,16 +325,7 @@ function htmlFacture(v) {
 }
 
 function imprimerFacture(v) {
-  const zoneRecu = document.getElementById('zone-recu');
-  zoneRecu.innerHTML = htmlFacture(v);
-  zoneRecu.hidden = false;
-  document.body.classList.add('impression-recu');
-  window.addEventListener('afterprint', () => {
-    document.body.classList.remove('impression-recu');
-    zoneRecu.hidden = true;
-    zoneRecu.innerHTML = '';
-  }, { once: true });
-  window.print();
+  imprimerHtml(htmlFacture(v));
 }
 
 function montrerFacture(v) {

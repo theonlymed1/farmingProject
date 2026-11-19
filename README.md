@@ -81,6 +81,16 @@ Answers then come from `public/js/mock/`. An orange **MODE SIMULATION** badge sh
 4. Escape all data with `echapper()` before `innerHTML`; format with `format.js`.
 5. Set `disponible: true` for the page in the `MENU` list of `public/js/layout.js`.
 
+**Printing** (`public/js/impression.js`)
+
+- Every `<section class="carte">` with an `<h2>` automatically gets a small "Imprimer" that prints that
+  section only, under the print header. Opt out with `data-sans-impression` (or `no-print`).
+- One item (a charge, an invoice, a receipt, a fiche): build its HTML (`.recu` + `.recu-entete`) and call
+  `imprimerHtml(html)`. Put only what the paper needs: no ids, creation dates or screen hints.
+- On screen-only text: `no-print`. Explanations under tiles ("coût total ÷ poussins reçus"): `explication`
+  (hidden on paper). Paper-only content: `seulement-impression`.
+- Paramètres has no print button (forms only).
+
 ## Phase 0 checklist
 
 **Mohamed**

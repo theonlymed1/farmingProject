@@ -20,7 +20,8 @@
   <env name="NODE_ENV" value="production"/>
 
   <startmode>Automatic</startmode>
-  <delayedAutoStart>false</delayedAutoStart>
+  <!-- No <delayedAutoStart> element: WinSW 2 turns delayed start ON as soon as the element exists,
+       even with the value false, and Windows then starts the service ~2 minutes after boot. -->
   <serviceaccount>
     <domain>NT AUTHORITY</domain>
     <user>LocalService</user>

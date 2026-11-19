@@ -2,7 +2,10 @@
 // The form suggests sellers, then that seller's product types and products, from earlier charges.
 import { monterLayout } from '../layout.js';
 import { api } from '../api.js';
-import { formaterDate, formaterMontant, aujourdhui } from '../format.js';
+import {
+  formaterDate, formaterMontant, formaterNombre, aujourdhui,
+} from '../format.js';
+import { imprimerHtml, nomExploitation } from '../impression.js';
 import {
   echapper, afficherErreur, afficherSucces, afficherErreursChamps, effacerErreursChamps, confirmerAvecMotDePasse,
 } from '../ui.js';
@@ -14,13 +17,72 @@ const bandeId = Number(new URLSearchParams(location.search).get('bande'));
 const zone = document.getElementById('contenu-charges');
 const message = document.getElementById('message');
 let etat = null; // { bande, charges, resume }
-const filtre = { type: '', prix: 'toutes' };
+const filtre = { type: '', produit: '' }; // lower-case keys; '' = all
+
+const cle = (texte) => String(texte ?? '').trim().toLowerCase();
 
 // --- List ---------------------------------------------------------------------------
 
 function chargesFiltrees() {
-  return etat.charges.filter((c) => (!filtre.type || c.typeProduit.toLowerCase() === filtre.type.toLowerCase())
-    && (filtre.prix === 'toutes' || c.prixTotal == null));
+  return etat.charges.filter((c) => (!filtre.type || cle(c.typeProduit) === filtre.type)
+    && (!filtre.produit || cle(c.produit) === filtre.produit));
+}
+
+/** Distinct values (first spelling kept), sorted. */
+function distincts(valeurs) {
+  const vus = new Map();
+  for (const v of valeurs) if (!vus.has(cle(v))) vus.set(cle(v), v);
+  return [...vus.values()].sort((a, b) => a.localeCompare(b, 'fr'));
+}
+
+/** Quantities added up per unit: "70 L", "130 sacs + 20" (no unit). null when none was given. */
+function quantiteTotale(liste) {
+  const parUnite = new Map();
+  for (const c of liste) {
+    if (c.quantite == null) continue;
+    const k = cle(c.unite);
+    const u = parUnite.get(k) ?? { unite: c.unite ?? '', total: 0 };
+    u.total = Math.round((u.total + c.quantite) * 1000) / 1000;
+    parUnite.set(k, u);
+  }
+  if (!parUnite.size) return null;
+  return [...parUnite.values()]
+    .map((u) => `${formaterNombre(u.total)}${u.unite ? ` ${echapper(u.unite)}` : ''}`).join(' + ');
+}
+
+/** Average price per unit of one product, from the charges that have both a quantity and a price. */
+function prixMoyen(liste) {
+  const unites = new Set(liste.filter((c) => c.quantite != null).map((c) => cle(c.unite)));
+  if (unites.size !== 1) return null;
+  const chiffrees = liste.filter((c) => c.quantite > 0 && c.prixTotal != null);
+  const q = chiffrees.reduce((t, c) => t + c.quantite, 0);
+  if (!q) return null;
+  const unite = chiffrees[0].unite;
+  return `${formaterMontant(chiffrees.reduce((t, c) => t + c.prixTotal, 0) / q)} ${unite ? `/ ${echapper(unite)}` : 'par unité'}`;
+}
+
+/** Totals of the chosen type or product, above the list. */
+function htmlResumeFiltre(liste) {
+  if (!filtre.type && !filtre.produit) return '';
+  const total = liste.reduce((t, c) => t + (c.prixTotal ?? 0), 0);
+  const sansPrix = liste.filter((c) => c.prixTotal == null).length;
+  const sansQuantite = liste.filter((c) => c.quantite == null).length;
+  const quantite = quantiteTotale(liste);
+  const moyen = filtre.produit ? prixMoyen(liste) : null;
+  const nom = filtre.produit ? liste[0]?.produit : liste[0]?.typeProduit;
+  return `
+    <div class="resume-filtre">
+      <h3>${filtre.produit ? 'Produit' : 'Type'} « ${echapper(nom ?? '')} »${filtre.produit && liste[0]
+    ? ` <span class="texte-discret">(${echapper(liste[0].typeProduit)})</span>` : ''}</h3>
+      <dl class="chiffres-filtre">
+        <div><dt>Achats</dt><dd>${formaterNombre(liste.length)}</dd></div>
+        <div><dt>Quantité totale</dt><dd>${quantite ?? '—'}${sansQuantite && quantite
+    ? ` <small>(${sansQuantite} sans quantité)</small>` : ''}</dd></div>
+        <div><dt>Montant total</dt><dd>${formaterMontant(total)}${sansPrix
+    ? ` <small>(${sansPrix} prix à saisir)</small>` : ''}</dd></div>
+        ${moyen ? `<div><dt>Prix moyen</dt><dd>${moyen}</dd></div>` : ''}
+      </dl>
+    </div>`;
 }
 
 function htmlListe() {
@@ -31,7 +93,9 @@ function htmlListe() {
   }
   if (!liste.length) return '<p class="texte-discret">Aucune charge ne correspond au filtre.</p>';
   const totalFiltre = liste.reduce((t, c) => t + (c.prixTotal ?? 0), 0);
+  const filtreActif = Boolean(filtre.type || filtre.produit);
   return `
+    ${htmlResumeFiltre(liste)}
     <table class="tableau tableau-charges">
       <thead>
         <tr>
@@ -56,6 +120,7 @@ function htmlListe() {
             <td class="nombre">${c.prixTotal == null ? '<span class="badge badge-sans-prix">Prix à saisir</span>' : formaterMontant(c.prixTotal)}</td>
             <td class="cellule-description">${echapper(c.description ?? '')}</td>
             <td class="no-print actions-ligne">
+              <button type="button" class="bouton-lien" data-imprimer="${c.id}">Imprimer</button>
               <button type="button" class="bouton-lien" data-modifier="${c.id}">Modifier</button>
               <button type="button" class="bouton-lien bouton-lien-danger" data-supprimer="${c.id}">Supprimer</button>
             </td>
@@ -63,7 +128,8 @@ function htmlListe() {
       </tbody>
       <tfoot>
         <tr>
-          <th scope="row" colspan="5">Total${filtre.type || filtre.prix !== 'toutes' ? ' (filtre)' : ''} — ${liste.length} charge${liste.length > 1 ? 's' : ''}</th>
+          <th scope="row" colspan="4">Total${filtreActif ? ' (filtre)' : ''} — ${liste.length} charge${liste.length > 1 ? 's' : ''}</th>
+          <td class="nombre">${filtreActif ? quantiteTotale(liste) ?? '' : ''}</td>
           <td class="nombre">${formaterMontant(totalFiltre)}</td>
           <td colspan="2"></td>
         </tr>
@@ -71,11 +137,27 @@ function htmlListe() {
     </table>`;
 }
 
+function optionsProduits(types) {
+  // A type is chosen: its products. No type: every product, grouped by type.
+  const groupes = (filtre.type ? types.filter((t) => cle(t) === filtre.type) : types).map((type) => ({
+    type,
+    produits: distincts(etat.charges.filter((c) => cle(c.typeProduit) === cle(type)).map((c) => c.produit)),
+  }));
+  const option = (type, p) => `<option value="${echapper(`${cle(type)}\u0001${cle(p)}`)}"${cle(p) === filtre.produit
+    && cle(type) === filtre.type ? ' selected' : ''}>${echapper(p)}</option>`;
+  return `<option value="">Tous les produits</option>${filtre.type
+    ? groupes[0]?.produits.map((p) => option(groupes[0].type, p)).join('') ?? ''
+    : groupes.map((g) => `<optgroup label="${echapper(g.type)}">${g.produits.map((p) => option(g.type, p)).join('')}</optgroup>`).join('')}`;
+}
+
 function afficher() {
-  const types = [...new Map(etat.charges.map((c) => [c.typeProduit.toLowerCase(), c.typeProduit])).values()]
-    .sort((a, b) => a.localeCompare(b, 'fr'));
-  if (filtre.type && !types.some((t) => t.toLowerCase() === filtre.type.toLowerCase())) filtre.type = '';
-  const descriptionFiltre = [filtre.type && `type « ${filtre.type} »`, filtre.prix === 'sans' && 'charges sans prix']
+  const types = distincts(etat.charges.map((c) => c.typeProduit));
+  // A filter on something that no longer exists (deleted, renamed) is dropped.
+  if (filtre.type && !types.some((t) => cle(t) === filtre.type)) { filtre.type = ''; filtre.produit = ''; }
+  if (filtre.produit && !chargesFiltrees().length) filtre.produit = '';
+  const nomType = types.find((t) => cle(t) === filtre.type);
+  const nomProduit = filtre.produit && etat.charges.find((c) => cle(c.produit) === filtre.produit)?.produit;
+  const descriptionFiltre = [nomType && `type « ${nomType} »`, nomProduit && `produit « ${nomProduit} »`]
     .filter(Boolean).join(', ');
 
   zone.innerHTML = `
@@ -96,22 +178,50 @@ function afficher() {
         <label>Type :
           <select id="filtre-type">
             <option value="">Tous les types</option>
-            ${types.map((t) => `<option value="${echapper(t)}"${t.toLowerCase() === filtre.type.toLowerCase() ? ' selected' : ''}>${echapper(t)}</option>`).join('')}
+            ${types.map((t) => `<option value="${echapper(cle(t))}"${cle(t) === filtre.type ? ' selected' : ''}>${echapper(t)}</option>`).join('')}
           </select>
         </label>
-        <label>Afficher :
-          <select id="filtre-prix">
-            <option value="toutes"${filtre.prix === 'toutes' ? ' selected' : ''}>Toutes les charges</option>
-            <option value="sans"${filtre.prix === 'sans' ? ' selected' : ''}>Seulement les prix à saisir (${etat.resume.sansPrix})</option>
-          </select>
+        <label>Produit :
+          <select id="filtre-produit">${optionsProduits(types)}</select>
         </label>
       </div>` : ''}
       <div id="liste">${htmlListe()}</div>
     </section>`;
 
   // Re-render everything so the printed "Filtre : …" line always matches the list.
-  zone.querySelector('#filtre-type')?.addEventListener('change', (e) => { filtre.type = e.target.value; afficher(); });
-  zone.querySelector('#filtre-prix')?.addEventListener('change', (e) => { filtre.prix = e.target.value; afficher(); });
+  zone.querySelector('#filtre-type')?.addEventListener('change', (e) => {
+    filtre.type = e.target.value;
+    filtre.produit = '';
+    afficher();
+  });
+  zone.querySelector('#filtre-produit')?.addEventListener('change', (e) => {
+    const [type = '', produit = ''] = e.target.value.split('\u0001');
+    filtre.produit = produit;
+    if (produit) filtre.type = type; // chosen from "all types": the type follows
+    afficher();
+  });
+}
+
+// --- Print one charge -----------------------------------------------------------------
+
+function htmlFicheCharge(c) {
+  return `
+    <div class="recu">
+      <div class="recu-entete">
+        <strong>${echapper(nomExploitation())}</strong>
+        <span>Charge — bande « ${echapper(etat.bande.nom)} »</span>
+      </div>
+      <h2>${echapper(c.produit)}</h2>
+      <dl class="liste-cles">
+        <dt>Date</dt><dd>${formaterDate(c.date)}</dd>
+        <dt>Vendeur</dt><dd>${echapper(c.vendeur)}</dd>
+        <dt>Type de produit</dt><dd>${echapper(c.typeProduit)}</dd>
+        <dt>Produit ou service</dt><dd>${echapper(c.produit)}</dd>
+        ${c.quantite == null ? '' : `<dt>Quantité</dt><dd>${quantite(c)}</dd>`}
+        ${c.description ? `<dt>Description</dt><dd>${echapper(c.description)}</dd>` : ''}
+      </dl>
+      <p class="facture-total">Prix total : <strong>${c.prixTotal == null ? 'à saisir' : formaterMontant(c.prixTotal)}</strong></p>
+    </div>`;
 }
 
 // --- Form (add / edit) with suggestions ---------------------------------------------------
@@ -262,6 +372,11 @@ document.getElementById('bouton-ajouter').addEventListener('click', async () => 
 });
 
 zone.addEventListener('click', async (evt) => {
+  const impr = evt.target.closest('[data-imprimer]');
+  if (impr) {
+    imprimerHtml(htmlFicheCharge(etat.charges.find((c) => c.id === Number(impr.dataset.imprimer))));
+    return;
+  }
   const modif = evt.target.closest('[data-modifier]');
   const suppr = evt.target.closest('[data-supprimer]');
   if (!modif && !suppr) return;

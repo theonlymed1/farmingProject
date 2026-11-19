@@ -29,17 +29,29 @@ export function tuilesVentes(r) {
       <div class="indicateur">
         <span class="indicateur-libelle">Prix moyen par oiseau</span>
         <span class="indicateur-valeur">${formaterMontant(r.prixMoyenOiseau)}</span>
-        <span class="indicateur-detail">total ÷ oiseaux vendus</span>
+        <span class="indicateur-detail explication">total ÷ oiseaux vendus</span>
       </div>
       <div class="indicateur">
         <span class="indicateur-libelle">Coût total de la bande</span>
         <span class="indicateur-valeur">${formaterMontant(r.coutTotal)}</span>
-        <span class="indicateur-detail">poussins + charges + employés + véhicules</span>
+        <span class="indicateur-detail explication">poussins + charges + employés + véhicules</span>
       </div>
       <div class="indicateur ${positif ? 'indicateur-benefice' : 'indicateur-perte'}">
         <span class="indicateur-libelle">Résultat</span>
         <span class="indicateur-valeur">${positif ? '' : '− '}${formaterMontant(Math.abs(r.resultat))}</span>
-        <span class="indicateur-detail">${positif ? 'bénéfice' : 'perte'} : ventes − coût total</span>
+        <span class="indicateur-detail">${positif ? 'bénéfice' : 'perte'}<span class="explication"> : ventes − coût total</span></span>
       </div>
     </section>`;
+}
+
+/** Paper version of the tiles (Bande fiche). The total cost is already in the Charges part. */
+export function listeVentes(r) {
+  return `
+    <dl class="liste-cles">
+      <dt>Total des ventes</dt><dd><strong>${formaterMontant(r.total)}</strong> <span class="texte-discret">(${formaterNombre(r.nombre)} vente${r.nombre > 1 ? 's' : ''})</span></dd>
+      <dt>Oiseaux vendus</dt><dd>${formaterNombre(r.oiseaux)}${r.oiseaux ? ` <span class="texte-discret">(${formaterKg(r.poidsMoyenKg)} en moyenne)</span>` : ''}</dd>
+      <dt>Poids vendu</dt><dd>${formaterKg(r.poidsKg)}${r.poidsKg ? ` <span class="texte-discret">(${formaterMontant(r.prixMoyenKg)} le kg)</span>` : ''}</dd>
+      <dt>Prix moyen par oiseau</dt><dd>${formaterMontant(r.prixMoyenOiseau)}</dd>
+      <dt>Résultat</dt><dd><strong>${r.resultat < 0 ? '− ' : ''}${formaterMontant(Math.abs(r.resultat))}</strong> <span class="texte-discret">(${r.resultat >= 0 ? 'bénéfice' : 'perte'})</span></dd>
+    </dl>`;
 }

@@ -28,7 +28,7 @@ Nothing else to install on his PC: Node.js, PostgreSQL and the application are i
 | Program (Node.js + application + service) | `C:\Program Files\Plateforme avicole` |
 | Data (database), daily backups, logs | `C:\ProgramData\PlateformeAvicole\` (`data`, `sauvegardes`, `journaux`) |
 | Windows service **Plateforme avicole** | starts with Windows, restarts by itself if it stops |
-| Desktop icon **Ferme Sidi Aidi** | waits until the server answers, then opens `http://localhost:3000` |
+| Desktop icon **Ferme Sidi Aidi** | waits (up to 3 min, with a "La plateforme démarre…" message) until the server answers, then opens `http://localhost:3000` |
 | Start menu | the same shortcut + "Sauvegardes de la plateforme" (the backups folder) |
 
 - **First install**: a page asks for a folder where each daily backup is also copied, e.g. another disk
@@ -42,7 +42,10 @@ Nothing else to install on his PC: Node.js, PostgreSQL and the application are i
 
 The service runs as **NT AUTHORITY\LocalService**, a built-in account without administrator rights,
 because PostgreSQL refuses to run as an administrator. That is why the installer grants it write access
-to `C:\ProgramData\PlateformeAvicole` and to the chosen copy folder. A copy folder chosen later in
+to `C:\ProgramData\PlateformeAvicole` and to the chosen copy folder. It also grants write access to
+`app\node_modules\@embedded-postgres\windows-x64\native\bin` (only that folder): embedded-postgres
+sets the permissions of `postgres.exe` and `initdb.exe` at every start, and without that right Windows
+refuses (`EPERM … chmod`) and the server can't start. A copy folder chosen later in
 Paramètres must be writable by that account: if it isn't, Paramètres says so. Then either pick that
 folder by running the installer again (uninstall first, data is kept), or choose another folder.
 
@@ -58,7 +61,9 @@ Ideally on a PC or a virtual machine without Node.js or PostgreSQL installed.
 2. Choose a copy folder (e.g. `D:\Sauvegardes ferme`), install, and note the password shown.
 3. The page opens by itself. Log in with `admin` and that password, then create a bande.
 4. Restart the PC **without logging in to Windows for 1 minute**, then click the desktop icon: the
-   platform must open (the service started with Windows).
+   platform must open (the service started with Windows). In `services.msc`, "Plateforme avicole" must
+   show *Automatique* (not *Automatique (début différé)*), and the platform must answer within about
+   a minute of the desktop appearing.
 5. After 2–3 minutes, Paramètres → Sauvegarde must show a "Dernière sauvegarde automatique" and a
    successful copy. The copy folder must contain `sauvegarde-auto-<date>.avicole`.
 6. Run the same installer again (update): the data must still be there.
@@ -66,4 +71,5 @@ Ideally on a PC or a virtual machine without Node.js or PostgreSQL installed.
 
 If something fails, the logs are in `C:\ProgramData\PlateformeAvicole\journaux\`
 (`PlateformeAvicole.out.log`, `PlateformeAvicole.err.log`, `PlateformeAvicole.wrapper.log`).
+PowerShell shows accents wrongly in them (`Ã©`): the files themselves are fine (UTF-8).
 Send them to me.

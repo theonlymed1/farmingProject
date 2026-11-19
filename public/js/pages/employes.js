@@ -3,6 +3,7 @@
 // (advances, rest days), edit, or "Supprimer" = the worker leaves
 // (password + departure date) with a printable receipt of what he is owed.
 import { monterLayout } from '../layout.js';
+import { imprimerHtml } from '../impression.js';
 import { api } from '../api.js';
 import {
   formaterDate, formaterMontant, formaterNombre, aujourdhui,
@@ -54,12 +55,12 @@ function tuiles() {
       <div class="indicateur">
         <span class="indicateur-libelle">Reste à payer aux employés actuels</span>
         <span class="indicateur-valeur">${formaterMontant(r.soldeActifs)}</span>
-        <span class="indicateur-detail">s’ils partaient aujourd’hui</span>
+        <span class="indicateur-detail explication">s’ils partaient aujourd’hui</span>
       </div>
       <div class="indicateur indicateur-fort">
         <span class="indicateur-libelle">Coût pour la bande</span>
         <span class="indicateur-valeur">${formaterMontant(r.cout)}</span>
-        <span class="indicateur-detail">avances + soldes des départs</span>
+        <span class="indicateur-detail explication">avances + soldes des départs</span>
       </div>
     </section>`;
 }
@@ -395,6 +396,38 @@ function htmlCompte(e, c) {
     </dl>`;
 }
 
+/** The employee on paper: identity, account to date, advances and days off (no buttons). */
+function htmlFicheEmploye(e) {
+  const tableau = (titre, colonnes, lignes) => `
+      <h3>${titre}</h3>
+      ${lignes.length ? `
+      <table class="tableau tableau-compact">
+        <thead><tr>${colonnes.map(([c, nombre]) => `<th scope="col"${nombre ? ' class="nombre"' : ''}>${c}</th>`).join('')}</tr></thead>
+        <tbody>${lignes.join('')}</tbody>
+      </table>` : '<p class="texte-discret">Aucun.</p>'}`;
+  return `
+    <div class="recu">
+      <div class="recu-entete">
+        <strong>${echapper(nomExploitation)}</strong>
+        <span>Fiche employé — bande « ${echapper(etat.bande.nom)} »</span>
+      </div>
+      <h2>${echapper(e.nom)}</h2>
+      <dl class="liste-cles">
+        <dt>CIN</dt><dd>${echapper(e.cin)}</dd>
+        <dt>Âge</dt><dd>${e.age} ans</dd>
+        <dt>Début du travail</dt><dd>${formaterDate(e.dateDebut)}</dd>
+        ${e.dateDepart ? `<dt>Départ</dt><dd>${formaterDate(e.dateDepart)}</dd>` : ''}
+        <dt>Salaire par jour</dt><dd>${formaterMontant(e.salaireJournalier)}</dd>
+      </dl>
+      <h3>${e.dateDepart ? 'Compte au départ' : 'Compte à ce jour'}</h3>
+      ${htmlCompte(e, e.compte)}
+      ${tableau(`Avances (${e.avances.length})`, [['Date'], ['Montant', true], ['Note']], [...e.avances].reverse().map((a) => `
+        <tr><td>${formaterDate(a.date)}</td><td class="nombre">${formaterMontant(a.montant)}</td><td>${echapper(a.note ?? '')}</td></tr>`))}
+      ${tableau(`Jours de repos (${e.joursRepos.length})`, [['Date'], ['Note']], e.joursRepos.map((j) => `
+        <tr><td>${formaterDate(j.date)}</td><td>${echapper(j.note ?? '')}</td></tr>`))}
+    </div>`;
+}
+
 function voirInfos(employe) {
   const repos = employe.joursRepos;
   const d = dialogue(`
@@ -424,9 +457,11 @@ function voirInfos(employe) {
           <button type="button" class="bouton-lien bouton-lien-danger" data-annuler-repos="${j.date}">Annuler</button></li>`).join('')}</ul>`
     : '<p class="texte-discret">Aucun jour de repos.</p>'}
       <div class="actions-dialogue">
-        <button type="button" class="bouton" data-fermer>Fermer</button>
+        <button type="button" class="bouton bouton-secondaire" data-fermer>Fermer</button>
+        <button type="button" class="bouton" data-imprimer-fiche>Imprimer la fiche</button>
       </div>
     </div>`, { large: true });
+  d.querySelector('[data-imprimer-fiche]').addEventListener('click', () => imprimerHtml(htmlFicheEmploye(employe)));
   d.addEventListener('click', async (evt) => {
     const recu = evt.target.closest('[data-recu-avance]');
     if (recu) {
@@ -579,19 +614,6 @@ function montrerRecuAvance(e, a) {
 
 function imprimerRecu(e) {
   imprimerHtml(htmlRecu(e));
-}
-
-function imprimerHtml(html) {
-  const zoneRecu = document.getElementById('zone-recu');
-  zoneRecu.innerHTML = html;
-  zoneRecu.hidden = false;
-  document.body.classList.add('impression-recu');
-  window.addEventListener('afterprint', () => {
-    document.body.classList.remove('impression-recu');
-    zoneRecu.hidden = true;
-    zoneRecu.innerHTML = '';
-  }, { once: true });
-  window.print();
 }
 
 function montrerRecu(e) {

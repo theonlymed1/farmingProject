@@ -3,6 +3,7 @@
 //   + Charge spécifique (type 'petite') : nom, date, unité, quantité, prix par <unité> (total calculated), description
 // No link with the Bandes: these charges never count in a Bande's costs.
 import { monterLayout } from '../layout.js';
+import { imprimerHtml } from '../impression.js';
 import { api } from '../api.js';
 import {
   formaterDate, formaterMontant, formaterNombre, aujourdhui,
@@ -289,11 +290,8 @@ function htmlFiche(c) {
       </div>
       <h2>${TYPES[c.type]} : ${echapper(c.nom)}</h2>
       <dl class="liste-cles">
-        <dt>Type</dt><dd>${TYPES[c.type]}</dd>
-        <dt>Nom de la charge</dt><dd>${echapper(c.nom)}</dd>
         <dt>Date</dt><dd>${formaterDate(c.date)}</dd>
         ${petite ? `
-        <dt>Unité</dt><dd>${echapper(c.unite)}</dd>
         <dt>Quantité</dt><dd>${quantiteTexte(c)}</dd>
         <dt>Prix par ${echapper(c.unite)}</dt><dd>${formaterMontant(c.prixUnitaire)}</dd>` : `
         <dt>Quantité</dt><dd>${quantiteTexte(c)}</dd>`}
@@ -305,16 +303,7 @@ function htmlFiche(c) {
 }
 
 function imprimerCharge(c) {
-  const zoneRecu = document.getElementById('zone-recu');
-  zoneRecu.innerHTML = htmlFiche(c);
-  zoneRecu.hidden = false;
-  document.body.classList.add('impression-recu');
-  window.addEventListener('afterprint', () => {
-    document.body.classList.remove('impression-recu');
-    zoneRecu.hidden = true;
-    zoneRecu.innerHTML = '';
-  }, { once: true });
-  window.print();
+  imprimerHtml(htmlFiche(c));
 }
 
 // --- "⋯" menu: Imprimer, Modifier, Supprimer ------------------------------------------------

@@ -2,6 +2,7 @@
 // Every page calls monterLayout() once.
 import { api, mode } from './api.js';
 import { echapper } from './ui.js';
+import { activerImpressionSections } from './impression.js';
 
 // Features of an open Bande. Set `disponible: true` when a page is merged.
 // Each page receives the Bande as ?id=… (bande page) or ?bande=… (feature pages).
@@ -31,6 +32,8 @@ export function monterLayout({ titre, bande = null }) {
   const pageActive = document.body.dataset.page;
   const contenu = document.getElementById('contenu');
   if (!contenu) throw new Error('layout.js : <main id="contenu"> introuvable');
+  // Paramètres holds forms only: nothing there is worth printing.
+  const imprimable = pageActive !== 'parametres';
 
   const menuBande = bande ? `
       <p class="menu-titre-bande">${echapper(bande.nom)}</p>
@@ -46,7 +49,7 @@ export function monterLayout({ titre, bande = null }) {
         <small id="entete-exploitation"></small>
         ${mode === 'mock' ? '<span class="badge badge-mode-mock" title="Réponses simulées (js/mock)">MODE SIMULATION</span>' : ''}
       </div>
-      <button type="button" class="bouton" id="bouton-imprimer">Imprimer</button>
+      ${imprimable ? '<button type="button" class="bouton" id="bouton-imprimer">Imprimer</button>' : ''}
       <button type="button" class="bouton bouton-entete-discret" id="bouton-deconnexion">Se déconnecter</button>
     </header>
     <nav class="menu" aria-label="Menu principal">
@@ -71,7 +74,10 @@ export function monterLayout({ titre, bande = null }) {
   cadre.append(contenu);
 
   document.title = `${titre} — Plateforme avicole`;
-  document.getElementById('bouton-imprimer').addEventListener('click', () => window.print());
+  if (imprimable) {
+    document.getElementById('bouton-imprimer').addEventListener('click', () => window.print());
+    activerImpressionSections();
+  }
   document.getElementById('bouton-deconnexion').addEventListener('click', seDeconnecter);
   // The print date is the moment of printing, not of page load.
   window.addEventListener('beforeprint', () => {

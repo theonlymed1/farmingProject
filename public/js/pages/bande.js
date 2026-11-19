@@ -9,8 +9,8 @@ import {
 import { echapper, afficherErreur, afficherSucces } from '../ui.js';
 import { tableauSante } from '../volaille-commun.js';
 import { resumeDernierControle } from '../croissance-commun.js';
-import { tuilesCharges, tableauParType } from '../charges-commun.js';
-import { tuilesVentes } from '../ventes-commun.js';
+import { tuilesCharges, tableauParType, listeCouts } from '../charges-commun.js';
+import { tuilesVentes, listeVentes } from '../ventes-commun.js';
 import {
   STATUTS, badgeStatut, ouvrirFormulaireBande, confirmerSuppressionBande,
 } from '../bandes-commun.js';
@@ -86,8 +86,8 @@ function afficher(b) {
         <dt>Prix des poussins</dt><dd>${b.prixPoussins == null
     ? '<span class="badge badge-sans-prix">Prix à saisir</span> <span class="texte-discret no-print">— cliquez sur « Modifier » pour l’ajouter</span>'
     : `${formaterMontant(b.prixPoussins)} <span class="texte-discret">(${formaterMontant(b.prixParPoussin)} par poussin)</span>`}</dd>
-        <dt>Créée le</dt><dd>${formaterDateHeure(b.creeLe)}</dd>
-        ${b.modifieLe ? `<dt>Dernière modification</dt><dd>${formaterDateHeure(b.modifieLe)}</dd>` : ''}
+        <dt class="no-print">Créée le</dt><dd class="no-print">${formaterDateHeure(b.creeLe)}</dd>
+        ${b.modifieLe ? `<dt class="no-print">Dernière modification</dt><dd class="no-print">${formaterDateHeure(b.modifieLe)}</dd>` : ''}
       </dl>
     </section>
 
@@ -186,15 +186,19 @@ function afficher(b) {
 
   api.get(`/bandes/${b.id}/charges`)
     .then((etat) => {
-      document.getElementById('resume-charges').innerHTML = `${tuilesCharges(etat.resume)}${etat.resume.nombre
-        ? tableauParType(etat.resume) : '<p class="texte-discret">Aucune charge déclarée pour cette bande.</p>'}`;
+      // Screen: the tiles. Paper: the same figures as a short list (the tiles take a whole page).
+      document.getElementById('resume-charges').innerHTML = `
+        <div class="no-print">${tuilesCharges(etat.resume)}</div>
+        <div class="seulement-impression">${listeCouts(etat.resume)}</div>
+        ${etat.resume.nombre ? tableauParType(etat.resume) : '<p class="texte-discret">Aucune charge déclarée pour cette bande.</p>'}`;
     })
     .catch((e) => afficherErreur(document.getElementById('resume-charges'), e));
 
   api.get(`/bandes/${b.id}/ventes`)
     .then(({ resume }) => {
-      document.getElementById('resume-ventes').innerHTML = `${tuilesVentes(resume)}${resume.nombre
-        ? '' : '<p class="texte-discret">Aucune vente déclarée pour cette bande.</p>'}`;
+      document.getElementById('resume-ventes').innerHTML = resume.nombre
+        ? `<div class="no-print">${tuilesVentes(resume)}</div><div class="seulement-impression">${listeVentes(resume)}</div>`
+        : '<p class="texte-discret">Aucune vente déclarée pour cette bande.</p>';
     })
     .catch((e) => afficherErreur(document.getElementById('resume-ventes'), e));
 

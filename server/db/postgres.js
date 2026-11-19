@@ -60,7 +60,7 @@ export async function demarrerBase() {
       port: db.port,
       persistent: true, // never delete the data folder on stop
       initdbFlags: ['--encoding=UTF8', '--no-locale'],
-      onLog: (m) => { if (config.debug) console.log('[postgres]', m); },
+      onLog: (m) => { if (config.debug || config.prod) console.log('[postgres]', String(m).trimEnd()); },
       onError: (e) => console.error('[postgres]', e),
     });
 

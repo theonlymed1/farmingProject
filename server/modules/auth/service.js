@@ -59,7 +59,9 @@ export async function assurerUtilisateurParDefaut() {
   console.log('==============================================================');
   console.log(' Compte créé — notez ces identifiants :');
   console.log(`   Identifiant  : ${identifiant}`);
-  console.log(`   Mot de passe : ${motDePasse}`);
+  // Production: the console goes to a log file kept for months, so the password is never written
+  // there; it is in the file below (deleted once noted) and shown by the installer.
+  console.log(`   Mot de passe : ${config.prod ? '(voir le fichier ci-dessous)' : motDePasse}`);
   console.log(` (aussi enregistrés dans ${fichier})`);
   console.log('==============================================================');
   console.log('');

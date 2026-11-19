@@ -31,7 +31,8 @@ body { background: #fff; color: #000; font-size: 11pt; }
 
 .carte { border: 0; box-shadow: none; padding: 0; margin-bottom: 6mm; }
 
-/* On-screen messages don't belong on paper. */
+/* On-screen messages and explanations ("coût total ÷ poussins reçus"…) don't belong on paper. */
+.explication { display: none !important; }
 .alerte-succes, #message .alerte { display: none !important; }
 
 h1 { font-size: 16pt; }
@@ -60,6 +61,8 @@ a { color: #000; text-decoration: none; }
 .cellule-saisie input { border: 0; background: transparent !important; padding: 0; min-width: 0; font-size: 9pt; }
 
 /* Charges */
+.resume-filtre { border-left-width: 2px; padding: 2mm 3mm; margin-bottom: 3mm; break-inside: avoid; }
+.chiffres-filtre dd { font-size: 12pt; }
 .indicateur-alerte, .ligne-sans-prix td, .badge-sans-prix { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .tableau-charges { font-size: 9pt; }
 .cellule-description { max-width: none; font-size: inherit; }
@@ -74,6 +77,8 @@ body.impression-recu .zone-recu { display: block !important; }
 .recu { font-size: 12pt; max-width: 170mm; }
 .recu .liste-cles { grid-template-columns: 55mm 1fr; }
 .recu-signatures div { min-height: 30mm; }
+.recu h3 { margin: 5mm 0 2mm; font-size: 12pt; }
+.liste-cles + .tableau, .seulement-impression + .tableau { margin-top: 3mm; }
 
 /* Historique */
 .tableau-historique { font-size: 9pt; }

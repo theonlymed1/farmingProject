@@ -721,3 +721,13 @@ These settings of the PC (`dossier_copie`, `derniere_copie`, `derniere_sauvegard
 The Windows installer writes the folder chosen during installation in `<données>/dossier-copie.txt`; the server
 applies it at start and deletes the file. The initial credentials file is now UTF-8 with BOM and CRLF.
 Installer: see `installateur/README.md`.
+
+## 0.17 — Impressions (frontend only, no API change)
+
+- Charges: the "Afficher" filter (prices to enter) is replaced by a "Produit" filter: the products of the chosen
+  type (or every product, grouped by type). With a type or product chosen, the list shows its purchases,
+  total quantity per unit, total amount and, for one product, the average price per unit. Computed in the page
+  from `GET /bandes/:id/charges`.
+- New prints: one charge (Charges), one vehicle charge or document (⋯ → Imprimer), the employee fiche
+  (Voir les informations → Imprimer la fiche), and any section of any page ("Imprimer" next to its title).
+- Lighter paper: no explanation lines under the tiles, no creation dates, compact Bande fiche (2 pages instead of 3).
